@@ -1,0 +1,160 @@
+{
+  "name": "Driver",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "date_of_birth": {
+      "type": "string",
+      "format": "date"
+    },
+    "license_number": {
+      "type": "string",
+      "description": "Driver license number"
+    },
+    "training_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Alcohol delivery law training completed"
+    },
+    "training_completed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "on_delivery",
+        "offline",
+        "suspended"
+      ],
+      "default": "offline"
+    },
+    "current_latitude": {
+      "type": "number"
+    },
+    "current_longitude": {
+      "type": "number"
+    },
+    "total_deliveries": {
+      "type": "number",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": false,
+      "description": "False until the driver is fully vetted (genuine cleared background check + training). Inactive drivers cannot claim or be assigned orders."
+    },
+    "vehicle_info": {
+      "type": "string"
+    },
+    "avg_rating": {
+      "type": "number",
+      "description": "Average customer star rating (1-5), auto-updated on each new rating"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes or bio for this driver"
+    },
+    "last_shift_checklist_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the driver last completed the pre-shift compliance checklist"
+    },
+    "background_check_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "clear",
+        "failed",
+        "error"
+      ],
+      "default": "pending",
+      "description": "Status of the third-party background check"
+    },
+    "background_check_id": {
+      "type": "string",
+      "description": "External background check report ID"
+    },
+    "background_check_completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the background check was completed"
+    },
+    "vetting_flagged": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when an admin has flagged this unverified driver for investigation / police handover"
+    },
+    "vetting_flagged_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the driver was flagged for investigation"
+    },
+    "vetting_flagged_reason": {
+      "type": "string",
+      "description": "Reason the driver was flagged for investigation"
+    },
+    "investigation_notes": {
+      "type": "string",
+      "description": "Admin / investigator notes about this unverified or flagged driver"
+    }
+  },
+  "required": [
+    "name",
+    "email",
+    "phone"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

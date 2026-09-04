@@ -1,0 +1,83 @@
+{
+  "name": "Message",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string",
+      "description": "Reference to the Order"
+    },
+    "order_number": {
+      "type": "string"
+    },
+    "sender_role": {
+      "type": "string",
+      "enum": [
+        "driver",
+        "store",
+        "customer"
+      ],
+      "description": "Who sent this message"
+    },
+    "sender_name": {
+      "type": "string"
+    },
+    "sender_email": {
+      "type": "string",
+      "description": "Email of the sender for RLS filtering"
+    },
+    "customer_email": {
+      "type": "string",
+      "description": "Customer email on the order, for read access"
+    },
+    "driver_id": {
+      "type": "string",
+      "description": "Driver user ID on the order, for read access"
+    },
+    "text": {
+      "type": "string",
+      "description": "Message content"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "order_id",
+    "sender_role",
+    "text"
+  ],
+  "rls": {
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.customer_email": "{{user.email}}"
+        },
+        {
+          "data.sender_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

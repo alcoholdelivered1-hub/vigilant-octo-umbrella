@@ -1,0 +1,40 @@
+{
+  "name": "New Sale Push Alert",
+  "description": "Sends an instant FCM push notification to all admin devices when a new order is placed",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "new_sale_push_alert",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_push": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyAdminNewSale",
+            "args": {
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Send push notification",
+            "description": "Notifies all admin devices instantly"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Send Rating Request Email on Delivery",
+  "description": "When an order is marked as delivered, automatically emails the customer a link to rate their driver.",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"delivered\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "send_rating_request_email_on_delivery",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendRatingRequestEmail",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

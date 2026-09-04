@@ -1,0 +1,115 @@
+{
+  "name": "DriverPayout",
+  "type": "object",
+  "properties": {
+    "driver_id": {
+      "type": "string",
+      "description": "User ID of the driver"
+    },
+    "driver_email": {
+      "type": "string"
+    },
+    "driver_name": {
+      "type": "string"
+    },
+    "week_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Monday of the pay week"
+    },
+    "week_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Sunday of the pay week"
+    },
+    "delivery_count": {
+      "type": "number",
+      "default": 0
+    },
+    "delivery_fees": {
+      "type": "number",
+      "description": "Total delivery fees ($4.75 per delivery)"
+    },
+    "tips": {
+      "type": "number",
+      "default": 0
+    },
+    "mileage_surcharge": {
+      "type": "number",
+      "default": 0,
+      "description": "Total mileage bonus earned ($1/mile over 7 miles per delivery) \u2014 kept entirely by the driver"
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Total payout amount in USD (delivery fees + tips + mileage surcharge)"
+    },
+    "stripe_transfer_id": {
+      "type": "string",
+      "description": "Stripe transfer ID if payout was processed"
+    },
+    "stripe_connect_account_id": {
+      "type": "string",
+      "description": "Driver's Stripe Connect account ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "skipped",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "pending=not yet run, paid=successfully transferred, skipped=no deliveries or no Connect account, failed=Stripe error"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error details if status=failed"
+    },
+    "paid_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this payout"
+    }
+  },
+  "required": [
+    "driver_id",
+    "driver_email",
+    "week_start",
+    "week_end",
+    "total_amount"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.driver_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

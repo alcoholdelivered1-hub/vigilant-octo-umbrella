@@ -1,0 +1,34 @@
+{
+  "name": "Auto-Send Partner Portal Invite on New Store",
+  "description": "When a new liquor store is created (added to the onboarding list), automatically sends the partner portal invite email via Gmail and advances onboarding status to 'contract_sent'.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Store"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_send_partner_portal_invite_on_new_store",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendRetailerOnboardingEmail",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

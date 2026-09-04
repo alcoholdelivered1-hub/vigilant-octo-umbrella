@@ -1,0 +1,100 @@
+{
+  "name": "CloverPosOrder",
+  "type": "object",
+  "properties": {
+    "clover_order_id": {
+      "type": "string",
+      "description": "Clover POS order ID"
+    },
+    "clover_payment_id": {
+      "type": "string",
+      "description": "Clover payment ID from the first payment on the order"
+    },
+    "store_id": {
+      "type": "string",
+      "description": "Reference to the Store this order belongs to"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "price": {
+            "type": "number",
+            "description": "Unit price in USD"
+          }
+        }
+      },
+      "description": "Line items from the Clover order"
+    },
+    "subtotal": {
+      "type": "number",
+      "description": "Subtotal in USD (total minus tax and tip)"
+    },
+    "tax": {
+      "type": "number",
+      "description": "Tax amount in USD"
+    },
+    "tip": {
+      "type": "number",
+      "description": "Tip amount in USD"
+    },
+    "total": {
+      "type": "number",
+      "description": "Total order amount in USD"
+    },
+    "currency": {
+      "type": "string",
+      "default": "usd"
+    },
+    "payment_status": {
+      "type": "string",
+      "description": "Clover payment result status e.g. SUCCESS, FAILED"
+    },
+    "order_created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the Clover order was created"
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this record was fetched from Clover"
+    }
+  },
+  "required": [
+    "clover_order_id",
+    "total"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

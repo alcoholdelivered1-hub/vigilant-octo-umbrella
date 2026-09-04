@@ -1,0 +1,158 @@
+{
+  "type": "object",
+  "name": "User",
+  "title": "User",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "user",
+        "driver"
+      ],
+      "default": "user"
+    },
+    "referral_code": {
+      "type": "string"
+    },
+    "referred_by_code": {
+      "type": "string"
+    },
+    "referred_by_email": {
+      "type": "string"
+    },
+    "referral_count": {
+      "type": "number",
+      "default": 0
+    },
+    "referral_credits": {
+      "type": "number",
+      "default": 0
+    },
+    "loyalty_points": {
+      "type": "number",
+      "default": 0
+    },
+    "loyalty_total_spent": {
+      "type": "number",
+      "default": 0
+    },
+    "loyalty_bonus_month": {
+      "type": "string",
+      "description": "YYYY-MM of the last month a monthly loyalty bonus was awarded (dedup so a customer is only bonused once per month)"
+    },
+    "onboarding_complete": {
+      "type": "boolean",
+      "default": false
+    },
+    "onboarding_data": {
+      "type": "object"
+    },
+    "background_check_submitted": {
+      "type": "boolean",
+      "default": false
+    },
+    "background_check_date": {
+      "type": "string"
+    },
+    "livescan_completed": {
+      "type": "boolean",
+      "default": false
+    },
+    "livescan_location": {
+      "type": "string"
+    },
+    "livescan_date": {
+      "type": "string"
+    },
+    "verification_code": {
+      "type": "string"
+    },
+    "verification_code_expires": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stripe_connect_account_id": {
+      "type": "string",
+      "description": "Stripe Connect Express account ID for driver payouts"
+    },
+    "stripe_connect_onboarded": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the driver has completed Stripe Connect onboarding"
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "Stripe customer ID for membership subscription billing"
+    },
+    "stripe_subscription_id": {
+      "type": "string",
+      "description": "Stripe subscription ID for the user's membership"
+    },
+    "membership_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "trialing",
+        "active",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "incomplete_expired",
+        "unpaid",
+        "paused"
+      ],
+      "default": "none",
+      "description": "Current membership subscription status synced from Stripe"
+    },
+    "membership_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the current membership billing period ends"
+    }
+  },
+  "required": [
+    "verification_code",
+    "livescan_location",
+    "verification_code_expires",
+    "referral_code",
+    "referred_by_email",
+    "background_check_date",
+    "livescan_date",
+    "stripe_connect_account_id",
+    "onboarding_data",
+    "referred_by_code"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "Weekly ABC Jefferson County Delivery Report",
+  "description": "Generates a weekly PDF summary of all Jefferson County deliveries and emails it to the Arkansas ABC compliance office (Drew.Cousins@dfa.arkansas.gov) every Monday at 9:00 AM Central Time.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 14 * * 1",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "weekly_abc_jefferson_county_delivery_report",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendWeeklyABCReport",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

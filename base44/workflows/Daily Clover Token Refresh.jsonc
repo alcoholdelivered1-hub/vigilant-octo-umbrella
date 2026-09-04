@@ -1,0 +1,44 @@
+{
+  "description": "Proactively refreshes every store's short-lived Clover v2 access_token using its stored refresh_token, so Clover calls never hit a 401 from token expiry.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_clover_token_refresh",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "refresh_tokens": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "refreshAllCloverTokens"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Refresh all Clover tokens",
+            "description": "Daily 4am CT"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 4 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Daily Clover Token Refresh"
+}

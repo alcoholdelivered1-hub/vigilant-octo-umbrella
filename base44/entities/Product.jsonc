@@ -1,0 +1,105 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Product name"
+    },
+    "sku": {
+      "type": "string",
+      "description": "Internal SKU or UPC/barcode \u2014 used with store_id as the primary duplicate-protection key for safe catalog updates and resume-after-timeout idempotency"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "beer",
+        "wine",
+        "spirits",
+        "mixers",
+        "accessories"
+      ],
+      "description": "Product category"
+    },
+    "brand": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "price": {
+      "type": "number",
+      "description": "Price in USD"
+    },
+    "pack_size": {
+      "type": "string",
+      "description": "Package type e.g. Single, 6-Pack, 12-Pack, 18-Pack, 24-Pack, 30-Pack, Case",
+      "default": "Single"
+    },
+    "volume": {
+      "type": "string",
+      "description": "e.g. 750ml, 12oz, etc."
+    },
+    "abv": {
+      "type": "number",
+      "description": "Alcohol by volume percentage"
+    },
+    "store_id": {
+      "type": "string",
+      "description": "Reference to the Store"
+    },
+    "store_email": {
+      "type": "string",
+      "description": "Retailer contact email \u2014 denormalized from Store so RLS can grant the store owner create/update access to their own inventory"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "in_stock": {
+      "type": "boolean",
+      "default": true
+    },
+    "stock_quantity": {
+      "type": "number",
+      "description": "Current inventory count. Leave blank if not tracking quantity."
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "price",
+    "store_id"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.store_email": "{{user.email}}"
+        }
+      ]
+    },
+    "read": null,
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.store_email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

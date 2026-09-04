@@ -1,0 +1,41 @@
+{
+  "name": "Weekly Store Payouts",
+  "description": "Runs every Monday at 7 AM CT (after driver payouts at 6 AM) to calculate store revenue from the prior week's delivered orders and initiate Stripe Connect transfers to each store's Express account.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 17 * * 1",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "weekly_store_payouts",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "weeklyStorePayouts",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

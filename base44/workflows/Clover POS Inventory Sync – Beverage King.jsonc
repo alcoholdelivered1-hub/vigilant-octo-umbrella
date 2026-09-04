@@ -1,0 +1,43 @@
+{
+  "name": "Clover POS Inventory Sync \u2013 Beverage King",
+  "description": "Automatically syncs Beverage King's inventory from Clover POS every 10 minutes \u2014 updates prices, availability, and stock quantities.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 10,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-07-20T15:07:27.424000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "clover_pos_inventory_sync_beverage_king",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncCloverInventory",
+            "args": {
+              "store_id": "6a32d14d09b760f592dbf19e"
+            }
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

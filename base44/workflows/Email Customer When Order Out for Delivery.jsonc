@@ -1,0 +1,34 @@
+{
+  "name": "Email Customer When Order Out for Delivery",
+  "description": "When a driver marks an order as out for delivery (status \u2192 in_transit), automatically emails the customer via Gmail with delivery details and an ID reminder.",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"in_transit\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "email_customer_when_order_out_for_delivery",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyCustomerOutForDelivery",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

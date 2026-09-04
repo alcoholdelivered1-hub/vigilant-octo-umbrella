@@ -1,0 +1,43 @@
+{
+  "description": "Sends an email alert to the admin whenever a new driver submits their application (Driver entity created).",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "alert_new_driver_signup",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_alert": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyNewDriverSignup",
+            "args": {
+              "event": {
+                "type": "create"
+              },
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Send driver signup alert email",
+            "description": "Emails admin with new driver details"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Driver"
+    }
+  },
+  "name": "Alert Admin on New Driver Signup"
+}

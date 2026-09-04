@@ -1,0 +1,80 @@
+{
+  "name": "AppleSubscriptionNotification",
+  "type": "object",
+  "properties": {
+    "notification_type": {
+      "type": "string",
+      "description": "Apple App Store Server notification type e.g. DID_RENEW, EXPIRED, DID_CHANGE_RENEWAL_STATUS"
+    },
+    "subtype": {
+      "type": "string",
+      "description": "Apple notification subtype e.g. AUTO_RENEW_ENABLED, BILLING_RETRY"
+    },
+    "transaction_id": {
+      "type": "string",
+      "description": "Apple transaction ID for this subscription event"
+    },
+    "original_transaction_id": {
+      "type": "string",
+      "description": "Original transaction ID that groups a subscription's entire renewal chain"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Apple product ID for the subscription"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "Sandbox",
+        "Production",
+        "Xcode",
+        "LocalTesting"
+      ],
+      "description": "Apple environment the notification originated from"
+    },
+    "auto_renew_status": {
+      "type": "number",
+      "description": "0 = auto-renew disabled, 1 = auto-renew enabled"
+    },
+    "expiration_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Subscription expiration date"
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this notification was received by the server"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this notification"
+    }
+  },
+  "required": [
+    "notification_type"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

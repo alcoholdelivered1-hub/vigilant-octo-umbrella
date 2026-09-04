@@ -1,0 +1,41 @@
+{
+  "name": "Simulate Richard's Delivery Route",
+  "description": "Advances Richard Campbell's GPS position along the delivery route from BEVERAGE KING to 1400 S Cherry St every 5 minutes.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 5,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-07-18T15:14:22.623000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "simulate_richard_s_delivery_route",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "simulateDriverMovement",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

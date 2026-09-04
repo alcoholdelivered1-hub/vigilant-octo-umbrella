@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 23 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "Daily 11pm CT: customers who placed more than 5 orders this month get a 500-point loyalty bonus, then a congratulatory message via the delivery_tracker agent. Deduped per month via loyalty_bonus_month on the User.",
+  "name": "Monthly Loyalty Bonus Check",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "monthly_loyalty_bonus",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_bonus": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "checkMonthlyLoyaltyBonus",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check monthly loyalty bonuses",
+            "description": "Award 500-pt bonus + agent message for 5+ orders/mo"
+          }
+        }
+      }
+    ]
+  }
+}

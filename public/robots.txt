@@ -1,0 +1,20 @@
+# Internal/operational routes must not be indexed. Customer storefront (/, /home,
+# /stores, /stores/:id) remains crawlable.
+User-agent: *
+Disallow: /admin
+Disallow: /driver
+Disallow: /Retailer
+Disallow: /store
+Disallow: /checkout
+Disallow: /orders
+Disallow: /track
+Disallow: /profile
+Disallow: /order-status
+Disallow: /retailer-contract
+Disallow: /retailer-onboarding
+Disallow: /early-signup
+Disallow: /membership
+Disallow: /stripe-express
+Disallow: /drive
+Disallow: /driver/signup
+Allow: /

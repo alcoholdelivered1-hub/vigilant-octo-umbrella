@@ -1,0 +1,41 @@
+{
+  "name": "Nightly Daily Sales Report (6a22cffc539a4e078575ebbf)",
+  "description": "Every night at 1am CT, calculates and saves the previous day's sales data per store into DailyReport records.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "nightly_daily_sales_report_6a22cffc539a4e078575ebbf",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "calculateDailySales",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

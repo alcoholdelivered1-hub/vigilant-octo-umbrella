@@ -1,0 +1,76 @@
+{
+  "name": "Fulfill Order After Payment",
+  "description": "Single orchestrator for the order\u2192cash flow. Fires the moment an order is marked paid (create or update). Best-effort pushes the order to the store's Clover POS (failure does NOT block fulfillment), ALWAYS notifies the retailer, and ALWAYS auto-dispatches the nearest in-zone driver (which fires the driver-assignment notification chain). Clover, retailer, and driver steps are independent so a missing Clover connection never stops a paid order from being fulfilled.",
+  "trigger": {
+    "condition": "${ .trigger.data.stripe_payment_status == \"paid\" and (.trigger.old_data.stripe_payment_status // \"pending\") != \"paid\" and (.trigger.data.clover_order_id // \"\") == \"\" }",
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "create",
+        "update"
+      ]
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "fulfill_order_after_payment",
+      "version": "2.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "push_to_clover": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoPushOrderToClover",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "notify_retailer",
+          "x-base44": {
+            "title": "Push order to Clover POS (best-effort)",
+            "description": "Creates an open Clover order + saves the Clover order ID if the store has Clover. Failure is logged but never blocks retailer/driver steps \u2014 most stores have no Clover."
+          }
+        }
+      },
+      {
+        "notify_retailer": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerNewOrder",
+            "args": {
+              "event": {
+                "type": "create"
+              },
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "auto_dispatch",
+          "x-base44": {
+            "title": "Notify retailer",
+            "description": "Email + push notification to the store so they can begin preparing the order. Always runs regardless of the Clover result."
+          }
+        }
+      },
+      {
+        "auto_dispatch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoDispatchOrder",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Auto-dispatch nearest driver",
+            "description": "Assigns the nearest in-zone available driver to the order and notifies them (push + email). The driver_id change then fires the 'Notify Driver on Assignment' workflow, which alerts the driver across platforms. Always runs regardless of the Clover result."
+          }
+        }
+      }
+    ]
+  }
+}

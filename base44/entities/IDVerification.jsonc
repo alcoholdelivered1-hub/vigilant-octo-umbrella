@@ -1,0 +1,100 @@
+{
+  "name": "IDVerification",
+  "type": "object",
+  "properties": {
+    "customer_email": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "order_id": {
+      "type": "string"
+    },
+    "verification_type": {
+      "type": "string",
+      "enum": [
+        "checkout",
+        "delivery"
+      ],
+      "description": "When verification occurred"
+    },
+    "id_type": {
+      "type": "string",
+      "enum": [
+        "drivers_license",
+        "passport",
+        "state_id",
+        "military_id"
+      ]
+    },
+    "id_image_url": {
+      "type": "string",
+      "description": "Uploaded ID image URL"
+    },
+    "date_of_birth": {
+      "type": "string",
+      "format": "date"
+    },
+    "is_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "Driver email who verified at delivery"
+    },
+    "verification_latitude": {
+      "type": "number"
+    },
+    "verification_longitude": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_email",
+    "verification_type"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.customer_email": "{{user.email}}"
+        },
+        {
+          "data.verified_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

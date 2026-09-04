@@ -1,0 +1,202 @@
+{
+  "name": "Store",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Licensed retailer name"
+    },
+    "license_number": {
+      "type": "string",
+      "description": "Arkansas ABC license number"
+    },
+    "address": {
+      "type": "string",
+      "description": "Store street address"
+    },
+    "city": {
+      "type": "string",
+      "description": "City"
+    },
+    "county": {
+      "type": "string",
+      "description": "County name"
+    },
+    "state": {
+      "type": "string",
+      "default": "AR"
+    },
+    "zip_code": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string",
+      "description": "Store contact email for order notifications"
+    },
+    "notification_phone": {
+      "type": "string",
+      "description": "SMS-capable phone number for order alerts (optional)"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "operating_hours_start": {
+      "type": "string",
+      "description": "Default weekday opening time e.g. 07:00"
+    },
+    "operating_hours_end": {
+      "type": "string",
+      "description": "Default weekday closing time e.g. 01:00"
+    },
+    "saturday_hours_start": {
+      "type": "string",
+      "description": "Saturday opening time e.g. 07:00"
+    },
+    "saturday_hours_end": {
+      "type": "string",
+      "description": "Saturday closing time e.g. 00:00"
+    },
+    "sunday_closed": {
+      "type": "boolean",
+      "default": true,
+      "description": "If true, store is closed on Sundays"
+    },
+    "sunday_hours_start": {
+      "type": "string",
+      "description": "Sunday opening time (if not closed)"
+    },
+    "sunday_hours_end": {
+      "type": "string",
+      "description": "Sunday closing time (if not closed)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "placement_tier": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "featured",
+        "premium"
+      ],
+      "default": "standard",
+      "description": "Paid placement tier: standard (free), featured ($50/mo), premium ($150/mo)"
+    },
+    "placement_expires": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when paid placement expires"
+    },
+    "compliance_status": {
+      "type": "string",
+      "enum": [
+        "compliant",
+        "flagged",
+        "expired",
+        "suspended"
+      ],
+      "default": "compliant",
+      "description": "Current compliance standing of the store"
+    },
+    "compliance_notes": {
+      "type": "string",
+      "description": "Admin notes on why the store was flagged, expired, or suspended"
+    },
+    "onboarding_status": {
+      "type": "string",
+      "enum": [
+        "invited",
+        "contract_sent",
+        "contract_signed",
+        "inventory_added",
+        "live"
+      ],
+      "default": "invited",
+      "description": "Tracks where the retailer is in the onboarding pipeline"
+    },
+    "onboarding_notes": {
+      "type": "string",
+      "description": "Admin notes on onboarding progress"
+    },
+    "contract_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the onboarding/contract email was first sent"
+    },
+    "reminder_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the last contract follow-up reminder email was sent"
+    },
+    "pos_system": {
+      "type": "string",
+      "enum": [
+        "clover",
+        "square",
+        "toast",
+        "ncr",
+        "lightspeed",
+        "shopkeep",
+        "other",
+        "none"
+      ],
+      "description": "POS system used by the retailer (from contract data)"
+    },
+    "stripe_connect_account_id": {
+      "type": "string",
+      "description": "Stripe Connect Express account ID for retailer payouts"
+    },
+    "stripe_connect_onboarded": {
+      "type": "boolean",
+      "default": false,
+      "description": "True once the retailer has completed Stripe Connect onboarding (KYC + bank account)"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional description or notes about this store"
+    }
+  },
+  "required": [
+    "name",
+    "license_number",
+    "address",
+    "city",
+    "county"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": null,
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.email": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

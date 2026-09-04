@@ -1,0 +1,34 @@
+{
+  "name": "Award Loyalty Points on Delivery",
+  "description": "",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"delivered\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "award_loyalty_points_on_delivery",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "awardLoyaltyPoints",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

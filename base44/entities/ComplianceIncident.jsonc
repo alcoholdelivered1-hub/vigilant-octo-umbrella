@@ -1,0 +1,118 @@
+{
+  "name": "ComplianceIncident",
+  "type": "object",
+  "properties": {
+    "incident_type": {
+      "type": "string",
+      "enum": [
+        "id_verification_failed",
+        "intoxication_refused",
+        "minor_attempt",
+        "other_refusal"
+      ],
+      "description": "Type of compliance incident"
+    },
+    "order_id": {
+      "type": "string",
+      "description": "Reference to the Order"
+    },
+    "order_number": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "driver_id": {
+      "type": "string"
+    },
+    "driver_name": {
+      "type": "string"
+    },
+    "driver_email": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Detailed reason for the failed delivery / refusal"
+    },
+    "delivery_address": {
+      "type": "string"
+    },
+    "verification_type": {
+      "type": "string",
+      "enum": [
+        "checkout",
+        "delivery"
+      ],
+      "description": "When ID verification was attempted (if applicable)"
+    },
+    "id_type": {
+      "type": "string",
+      "description": "Type of ID presented (if applicable)"
+    },
+    "incident_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the incident occurred"
+    },
+    "is_resolved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the admin has reviewed and resolved this incident"
+    },
+    "resolution_notes": {
+      "type": "string",
+      "description": "Admin notes on follow-up actions taken"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notification_sent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the admin was notified via email/push"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this compliance incident"
+    }
+  },
+  "required": [
+    "incident_type",
+    "order_id",
+    "reason"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

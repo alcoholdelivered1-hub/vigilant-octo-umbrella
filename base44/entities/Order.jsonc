@@ -1,0 +1,262 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "description": "Unique order identifier"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_phone": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "store_email": {
+      "type": "string",
+      "description": "Retailer contact email \u2014 denormalized from Store so RLS can grant the store owner read access to their store's orders"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "price": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number"
+    },
+    "delivery_fee": {
+      "type": "number"
+    },
+    "mileage_surcharge": {
+      "type": "number",
+      "default": 0,
+      "description": "Extra $1/mile charge for distances over 7 miles (goes to driver)"
+    },
+    "distance_miles": {
+      "type": "number",
+      "description": "Calculated distance in miles from store to delivery address"
+    },
+    "tax": {
+      "type": "number",
+      "description": "Arkansas state + local sales tax"
+    },
+    "alcohol_excise_tax": {
+      "type": "number",
+      "default": 0,
+      "description": "Arkansas retail alcohol excise tax (1% beer, 3% wine/spirits)"
+    },
+    "tip": {
+      "type": "number",
+      "default": 0,
+      "description": "Driver tip amount in USD"
+    },
+    "total": {
+      "type": "number"
+    },
+    "service_fee": {
+      "type": "number"
+    },
+    "stripe_payment_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Stripe payment status"
+    },
+    "stripe_session_id": {
+      "type": "string",
+      "description": "Stripe checkout session ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed",
+        "preparing",
+        "pickup_ready",
+        "in_transit",
+        "delivered",
+        "cancelled",
+        "refused"
+      ],
+      "default": "pending"
+    },
+    "delivery_address": {
+      "type": "string"
+    },
+    "delivery_latitude": {
+      "type": "number"
+    },
+    "delivery_longitude": {
+      "type": "number"
+    },
+    "order_latitude": {
+      "type": "number",
+      "description": "GPS location where order was placed"
+    },
+    "order_longitude": {
+      "type": "number",
+      "description": "GPS location where order was placed"
+    },
+    "driver_id": {
+      "type": "string"
+    },
+    "driver_name": {
+      "type": "string"
+    },
+    "driver_current_latitude": {
+      "type": "number",
+      "description": "Live driver GPS latitude, updated during in_transit"
+    },
+    "driver_current_longitude": {
+      "type": "number",
+      "description": "Live driver GPS longitude, updated during in_transit"
+    },
+    "driver_location_updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time driver GPS was updated"
+    },
+    "id_verified_at_checkout": {
+      "type": "boolean",
+      "default": false
+    },
+    "id_verified_at_delivery": {
+      "type": "boolean",
+      "default": false
+    },
+    "delivery_signature_url": {
+      "type": "string"
+    },
+    "delivery_photo_url": {
+      "type": "string",
+      "description": "Photo of the delivered order at the drop-off location, required to mark delivered (audit proof)"
+    },
+    "delivery_confirmed_latitude": {
+      "type": "number",
+      "description": "GPS latitude captured at drop-off confirmation (audit proof)"
+    },
+    "delivery_confirmed_longitude": {
+      "type": "number",
+      "description": "GPS longitude captured at drop-off confirmation (audit proof)"
+    },
+    "delivery_confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pickup_confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "refusal_reason": {
+      "type": "string",
+      "description": "Reason if delivery was refused"
+    },
+    "refusal_id_photo_url": {
+      "type": "string",
+      "description": "Photo of the refused customer's ID, captured at refusal for state ABC audit compliance"
+    },
+    "is_in_legal_zone": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    },
+    "clover_order_id": {
+      "type": "string",
+      "description": "Clover POS order ID once the order has been pushed to the store's Clover merchant (open state, not charged)"
+    }
+  },
+  "required": [
+    "customer_email",
+    "customer_name",
+    "store_id",
+    "items",
+    "total",
+    "delivery_address"
+  ],
+  "rls": {
+    "create": {
+      "created_by_id": "{{user.id}}",
+      "data.customer_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.customer_email": "{{user.email}}"
+        },
+        {
+          "data.driver_id": "{{user.id}}"
+        },
+        {
+          "data.store_email": "{{user.email}}"
+        },
+        {
+          "data.status": "pending"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.customer_email": "{{user.email}}"
+        },
+        {
+          "data.driver_id": "{{user.id}}"
+        },
+        {
+          "data.store_email": "{{user.email}}"
+        },
+        {
+          "data.status": "pending"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

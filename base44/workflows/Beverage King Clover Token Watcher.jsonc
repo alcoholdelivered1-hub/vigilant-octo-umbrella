@@ -1,0 +1,43 @@
+{
+  "name": "Beverage King Clover Token Watcher",
+  "description": "Fires the instant Beverage King's StorePosCredential is saved with a non-empty Clover api_token \u2014 validates the token against Clover and emails + pushes the admin team with a go/no-go result so they know exactly when the store is live-ready.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "StorePosCredential",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.store_id == \"6a32d14d09b760f592dbf19e\" and (.trigger.data.api_token // \"\") != \"\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "beverage_king_token_watcher",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "validate_and_notify": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyBeverageKingTokenReady",
+            "args": {
+              "store_id": "${ .trigger.data.store_id }",
+              "api_token": "${ .trigger.data.api_token }",
+              "merchant_id": "${ .trigger.data.merchant_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Validate token & notify admin",
+            "description": "Checks token against Clover, emails + pushes result"
+          }
+        }
+      }
+    ]
+  }
+}

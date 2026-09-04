@@ -1,0 +1,40 @@
+{
+  "name": "SyncState",
+  "type": "object",
+  "properties": {
+    "page_token": {
+      "type": "string",
+      "description": "Google Drive Changes API page token for incremental onboarding sync"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this sync state entry"
+    }
+  },
+  "required": [
+    "page_token"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

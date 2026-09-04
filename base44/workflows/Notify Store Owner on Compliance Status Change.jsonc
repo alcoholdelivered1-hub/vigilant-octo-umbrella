@@ -1,0 +1,34 @@
+{
+  "name": "Notify Store Owner on Compliance Status Change",
+  "description": "",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"compliance_status\") != null) and (.trigger.data.compliance_status == \"flagged\" or .trigger.data.compliance_status == \"expired\" or .trigger.data.compliance_status == \"suspended\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Store"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "notify_store_owner_on_compliance_status_change",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyComplianceStatusChange",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "name": "Check Delivery Zone on New Order",
+  "description": "When a new Order is created, geocodes the delivery address and checks it against active delivery zones. If outside a zone, logs the eligibility check as rejected and notifies the customer (cancelling the order). If inside a zone, triggers auto-dispatch to assign the nearest driver.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "create"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"pending\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "check_delivery_zone_on_new_order",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_zone": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "checkOrderDeliveryZone",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "branch_on_eligibility",
+          "x-base44": {
+            "title": "Check Delivery Zone",
+            "description": "Geocode address and match against active zones"
+          }
+        }
+      },
+      {
+        "branch_on_eligibility": {
+          "switch": [
+            {
+              "when": "${ .check_zone.eligible == true }",
+              "then": "auto_dispatch"
+            },
+            {
+              "when": "${ true }",
+              "then": "notify_customer"
+            }
+          ],
+          "x-base44": {
+            "title": "Eligible?",
+            "description": "Branch on the zone check result"
+          }
+        }
+      },
+      {
+        "auto_dispatch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoDispatchOrder",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Auto-Dispatch Driver",
+            "description": "Assign the nearest in-zone driver"
+          }
+        }
+      },
+      {
+        "notify_customer": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyCustomerIneligibleLocation",
+            "args": {
+              "order_id": "${ .trigger.entity_id }",
+              "rejection_reason": "${ .check_zone.rejection_reason }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Notify Customer",
+            "description": "Email customer and cancel the ineligible order"
+          }
+        }
+      }
+    ]
+  }
+}

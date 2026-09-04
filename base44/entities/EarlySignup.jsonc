@@ -1,0 +1,112 @@
+{
+  "name": "EarlySignup",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "customer",
+        "driver"
+      ],
+      "description": "Whether this person is signing up as a customer or driver"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "date_of_birth": {
+      "type": "string",
+      "format": "date",
+      "description": "Used to verify age 21+"
+    },
+    "age_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if person confirmed they are 21+"
+    },
+    "gig_experience": {
+      "type": "string",
+      "enum": [
+        "none",
+        "doordash",
+        "uber_eats",
+        "instacart",
+        "grubhub",
+        "multiple",
+        "other"
+      ],
+      "description": "Driver only: prior gig delivery experience"
+    },
+    "has_vehicle": {
+      "type": "boolean",
+      "description": "Driver only: owns/operates a reliable vehicle"
+    },
+    "vehicle_type": {
+      "type": "string",
+      "description": "Driver only: car make/model/year"
+    },
+    "has_valid_license": {
+      "type": "boolean",
+      "description": "Driver only: has valid driver license"
+    },
+    "referral_source": {
+      "type": "string",
+      "description": "How they heard about us"
+    },
+    "referral_code": {
+      "type": "string",
+      "description": "Unique shareable referral code for this signup"
+    },
+    "referred_by_code": {
+      "type": "string",
+      "description": "Referral code of the person who referred this signup"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "contacted",
+        "converted",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this signup"
+    }
+  },
+  "required": [
+    "role",
+    "full_name",
+    "email",
+    "age_verified"
+  ],
+  "rls": {
+    "create": null,
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

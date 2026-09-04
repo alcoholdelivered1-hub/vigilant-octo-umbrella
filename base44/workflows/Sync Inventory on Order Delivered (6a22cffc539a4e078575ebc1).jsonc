@@ -1,0 +1,34 @@
+{
+  "name": "Sync Inventory on Order Delivered (6a22cffc539a4e078575ebc1)",
+  "description": "When an order is marked delivered, deduct sold quantities from product stock levels.",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"delivered\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sync_inventory_on_order_delivered_6a22cffc539a4e078575ebc1",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncInventoryOnOrderComplete",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

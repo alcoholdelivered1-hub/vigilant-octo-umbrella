@@ -1,0 +1,132 @@
+{
+  "name": "DeliveryZone",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Zone name e.g. county name"
+    },
+    "county": {
+      "type": "string"
+    },
+    "is_wet": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether alcohol sales are legal"
+    },
+    "center_latitude": {
+      "type": "number"
+    },
+    "center_longitude": {
+      "type": "number"
+    },
+    "radius_miles": {
+      "type": "number",
+      "description": "Delivery radius in miles"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "legal_hours_start": {
+      "type": "string",
+      "description": "Monday\u2013Friday legal sale start time e.g. 07:00"
+    },
+    "legal_hours_end": {
+      "type": "string",
+      "description": "Monday\u2013Friday legal sale end time e.g. 01:00 (overnight into next day)"
+    },
+    "saturday_hours_start": {
+      "type": "string",
+      "description": "Saturday opening time e.g. 07:00"
+    },
+    "saturday_hours_end": {
+      "type": "string",
+      "description": "Saturday closing time e.g. 00:00 (midnight)"
+    },
+    "sunday_closed": {
+      "type": "boolean",
+      "default": true,
+      "description": "If true, no deliveries on Sunday"
+    },
+    "sunday_hours_start": {
+      "type": "string",
+      "description": "Sunday opening time (if not closed)"
+    },
+    "sunday_hours_end": {
+      "type": "string",
+      "description": "Sunday closing time (if not closed)"
+    },
+    "delivery_fee": {
+      "type": "number",
+      "description": "Custom delivery fee for this zone (USD)",
+      "default": 3
+    },
+    "min_order_amount": {
+      "type": "number",
+      "description": "Minimum order subtotal required for this zone (USD)",
+      "default": 20
+    },
+    "tax_rate": {
+      "type": "number",
+      "description": "Combined Arkansas state + local city/county sales tax rate as a decimal (e.g. 0.0975 = 9.75%). Arkansas state is 6.5%; add local jurisdiction rate.",
+      "default": 0.065
+    },
+    "zone_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "suspended"
+      ],
+      "default": "active",
+      "description": "Service-zone lifecycle status: draft (not live), active (serving), suspended (paused)"
+    },
+    "wet_jurisdiction_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether wet/dry jurisdiction status has been independently verified against Arkansas ABC records"
+    },
+    "compliance_last_reviewed": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the zone's compliance (wet status, hours, boundary) was last reviewed by an admin"
+    },
+    "boundary_version": {
+      "type": "string",
+      "description": "Arkansas GIS boundary dataset version used when this zone was last reviewed",
+      "default": "AR-GIS-MUNI-2026-07-15"
+    },
+    "admin_notes": {
+      "type": "string",
+      "description": "Administrator notes about this zone's compliance, boundary, or eligibility status"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this delivery zone"
+    }
+  },
+  "required": [
+    "name",
+    "county"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": null,
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

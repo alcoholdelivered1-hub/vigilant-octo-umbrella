@@ -1,0 +1,62 @@
+{
+  "name": "CloverOrderSync",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string",
+      "description": "Store ID this sync state tracks"
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "Stripe customer ID used for Clover POS invoice mirroring"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the last sync ran"
+    },
+    "total_synced": {
+      "type": "number",
+      "default": 0,
+      "description": "Total Clover orders synced to Stripe"
+    },
+    "last_sync_status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error",
+        "pending"
+      ],
+      "default": "pending"
+    },
+    "last_sync_summary": {
+      "type": "string",
+      "description": "Human-readable summary of the last sync result"
+    }
+  },
+  "required": [
+    "store_id"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

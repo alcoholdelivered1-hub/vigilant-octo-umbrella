@@ -1,0 +1,68 @@
+{
+  "name": "FCMToken",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user this token belongs to"
+    },
+    "user_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "user",
+        "driver",
+        "store"
+      ],
+      "description": "Role of the user"
+    },
+    "token": {
+      "type": "string",
+      "description": "FCM device token"
+    },
+    "store_id": {
+      "type": "string",
+      "description": "Store ID if this is a store owner token"
+    },
+    "driver_id": {
+      "type": "string",
+      "description": "Driver user ID if this is a driver token"
+    },
+    "device_info": {
+      "type": "string",
+      "description": "Browser/device identifier"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this FCM token"
+    }
+  },
+  "required": [
+    "user_email",
+    "token"
+  ],
+  "rls": {
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Log New Order to Google Sheets",
+  "description": "",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Order"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "log_new_order_to_google_sheets",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "logOrderToSheets",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

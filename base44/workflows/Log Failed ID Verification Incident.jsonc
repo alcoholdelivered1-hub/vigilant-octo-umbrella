@@ -1,0 +1,34 @@
+{
+  "name": "Log Failed ID Verification Incident",
+  "description": "Logs a compliance incident when an ID verification fails and sends immediate admin notification",
+  "trigger": {
+    "condition": "${ (.trigger.data.is_verified == false) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "IDVerification"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "log_failed_id_verification_incident",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "logComplianceIncident",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}
