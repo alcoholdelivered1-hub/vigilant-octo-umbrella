@@ -1,0 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:ital,wght@0,600;1,600;1,700&display=swap");
+
+:root { --ink: #183c35; --cream: #f7f3ea; --orange: #ed6d43; --yellow: #f5cb62; --muted: #67756f; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; color: var(--ink); background: var(--cream); font: 15px/1.5 "DM Sans", sans-serif; }
+a { color: inherit; text-decoration: none; }
+.site-header { align-items: center; display: flex; gap: 2.5rem; justify-content: space-between; margin: auto; max-width: 1240px; padding: 1.35rem 2rem; }
+.brand, .footer-brand { align-items: center; display: flex; font-size: .72rem; font-weight: 500; letter-spacing: .06em; line-height: 1.05; text-transform: uppercase; }
+.brand strong { font-weight: 700; }
+.brand-mark { align-items: center; background: var(--orange); color: #fff; display: inline-flex; font-size: .68rem; font-weight: 700; height: 35px; justify-content: center; margin-right: .65rem; transform: rotate(-7deg); width: 35px; }
+nav { display: flex; gap: 2rem; margin-left: auto; }
+nav a, .text-link { font-size: .78rem; font-weight: 700; }
+nav a:hover, .text-link:hover { color: var(--orange); }
+.button { background: var(--orange); border: 1px solid var(--orange); color: #fff; display: inline-block; font-weight: 700; padding: .9rem 1.2rem; transition: transform .2s, background .2s; }
+.button:hover { background: #d95c35; transform: translateY(-2px); }
+.button-small { font-size: .75rem; padding: .65rem .9rem; }
+.hero { display: grid; grid-template-columns: 1fr 1fr; margin: auto; max-width: 1240px; min-height: 570px; padding: 5rem 2rem 4rem; }
+.hero-copy { align-self: center; max-width: 560px; }
+.eyebrow { color: var(--orange); font-size: .7rem; font-weight: 700; letter-spacing: .18em; margin: 0 0 1.2rem; text-transform: uppercase; }
+h1, h2 { font-size: clamp(3.1rem, 6vw, 5.8rem); letter-spacing: -.055em; line-height: .98; margin: 0; }
+h2 { font-size: clamp(2.5rem, 4vw, 4rem); }
+h1 em, h2 em { color: var(--orange); font-family: "Playfair Display", serif; font-weight: 600; }
+.hero-text { color: var(--muted); font-size: 1.05rem; max-width: 410px; }
+.hero-actions { align-items: center; display: flex; gap: 1.7rem; margin: 2rem 0; }
+.text-link { border-bottom: 1px solid var(--ink); padding-bottom: .2rem; }
+.delivery-note { color: var(--muted); font-size: .7rem; }
+.delivery-note span { color: var(--orange); font-size: 1rem; margin-right: .4rem; }
+.hero-art { background: #e9a95e; min-height: 430px; overflow: hidden; position: relative; }
+.sun { background: var(--yellow); border-radius: 50%; height: 260px; left: 25%; position: absolute; top: 10%; width: 260px; }
+.bottle { border-radius: 8px 8px 16px 16px; bottom: 12%; position: absolute; transform: rotate(8deg); }
+.bottle::before { background: inherit; content: ""; height: 55px; left: 22%; position: absolute; top: -50px; width: 56%; }
+.bottle-back { background: #d96b50; height: 230px; left: 17%; width: 100px; }
+.bottle-front { background: #1d5347; bottom: 7%; height: 270px; left: 44%; width: 115px; z-index: 2; }
+.bottle span { background: var(--cream); color: var(--ink); font-size: .58rem; left: 12px; letter-spacing: .12em; padding: 1.2rem .4rem; position: absolute; right: 12px; text-align: center; top: 35%; }
+.bottle-front span { background: var(--yellow); border-radius: 50%; padding: 1.5rem .2rem; }
+.glass { background: rgba(255,255,255,.5); border: 4px solid rgba(255,255,255,.8); border-top: 0; bottom: 10%; height: 150px; left: 65%; position: absolute; transform: rotate(8deg); width: 130px; z-index: 3; }
+.drink { background: #e87c46; bottom: 0; height: 65%; position: absolute; width: 100%; }
+.straw { border-left: 3px solid var(--ink); height: 165px; left: 52%; position: absolute; top: -50px; transform: rotate(25deg); }
+.lime { background: #a7bd56; border-radius: 50%; bottom: 4%; height: 45px; left: 79%; position: absolute; width: 45px; }
+.sparkle { color: #fff; font-size: 1.4rem; position: absolute; }.sparkle-one { left: 12%; top: 12%; }.sparkle-two { right: 12%; top: 23%; }
+.category-strip { background: var(--ink); color: #fff; padding: 1.7rem max(2rem, calc((100% - 1240px) / 2)); }
+.category-strip > p { color: #b7c5bd; font-size: .75rem; margin: 0 0 1rem; }
+.categories { display: grid; gap: 1rem; grid-template-columns: repeat(4, 1fr); }
+.categories a { align-items: center; border-bottom: 1px solid #527168; display: flex; font-size: 1rem; gap: .65rem; padding-bottom: .7rem; }
+.categories span { font-size: 1.25rem; }.categories b { font-weight: 400; margin-left: auto; }
+.content-section, .how-section { margin: auto; max-width: 1240px; padding: 6rem 2rem; }
+.section-heading { align-items: end; display: flex; justify-content: space-between; margin-bottom: 2.5rem; }
+.product-grid { display: grid; gap: 1.3rem; grid-template-columns: repeat(3, 1fr); }
+.product-card h3 { font-size: 1rem; margin: .2rem 0; }.product-card p, .product-card span { color: var(--muted); font-size: .72rem; margin: .7rem 0 0; }.product-card span { margin: 0; }
+.product-illustration { height: 270px; overflow: hidden; position: relative; }.wine-card .product-illustration { background: #e9c9b9; }.beer-card .product-illustration { background: #dddfbd; }.spirit-card .product-illustration { background: #d7c6db; }
+.mini-bottle { background: #b74e38; border-radius: 7px 7px 12px 12px; bottom: 30px; height: 175px; left: 43%; position: absolute; width: 60px; }.mini-bottle::before { background: inherit; content: ""; height: 42px; left: 19px; position: absolute; top: -35px; width: 22px; }.beer-illustration .cans { bottom: 32px; display: flex; gap: 0; left: 25%; position: absolute; transform: rotate(-8deg); }.cans i { background: #e17c3e; border-radius: 5px; display: block; height: 170px; margin-left: -10px; width: 65px; }.cans i:nth-child(2) { background: #ebbc52; transform: translateY(-15px); }.cans i:nth-child(3) { background: #c65242; transform: translateY(3px); }.spirit-card .mini-bottle { background: #496e6b; }
+.how-section { display: grid; gap: 6rem; grid-template-columns: 1fr 1.4fr; }.steps { display: grid; gap: 1.5rem; grid-template-columns: repeat(3, 1fr); }.steps strong { color: var(--orange); font-size: .72rem; }.steps h3 { font-size: .95rem; margin: 2.2rem 0 .5rem; }.steps p { color: var(--muted); font-size: .78rem; margin: 0; }
+footer { background: #e9a95e; padding: 2.5rem max(2rem, calc((100% - 1240px) / 2)); }.footer-brand .brand-mark { background: var(--ink); }.footer-brand { font-weight: 700; }.footer-brand + p { font-family: "Playfair Display", serif; font-size: 1.5rem; margin: 1.7rem 0 3rem; }footer small { color: #695b43; font-size: .65rem; }
+@media (max-width: 700px) { .site-header { padding: 1rem; }.site-header nav { display: none; }.hero { display: block; padding: 4rem 1.2rem 2rem; }.hero-art { margin-top: 3rem; min-height: 340px; }.category-strip, .content-section, .how-section, footer { padding-left: 1.2rem; padding-right: 1.2rem; }.categories { grid-template-columns: repeat(2, 1fr); }.content-section { padding-top: 4rem; }.section-heading { align-items: start; display: block; }.section-heading .text-link { display: inline-block; margin-top: 1.5rem; }.product-grid { grid-template-columns: 1fr; }.product-illustration { height: 220px; }.how-section { display: block; padding-bottom: 4rem; }.steps { gap: 2rem; grid-template-columns: 1fr; margin-top: 3rem; }.steps h3 { margin-top: .5rem; } }
