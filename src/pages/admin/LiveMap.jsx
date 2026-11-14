@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Truck, Package, RefreshCw, MapPin, Clock, Flame } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import LiveDriverMap from '@/components/admin/LiveDriverMap';
 import StatusBadge from '@/components/shared/StatusBadge';

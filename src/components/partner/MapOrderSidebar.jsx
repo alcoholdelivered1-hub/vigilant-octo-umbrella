@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { MapPin, Truck, Clock, CheckCircle2, Loader2, Package } from 'lucide-react';
+import { MapPin, Truck, CheckCircle2, Loader2, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';

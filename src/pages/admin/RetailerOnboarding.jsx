@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, MapPin, Mail, Phone, ChevronRight, StickyNote, Upload, Send, Loader2, AlertCircle, Store as StoreIcon } from 'lucide-react';

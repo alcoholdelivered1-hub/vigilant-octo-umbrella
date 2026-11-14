@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle, ShieldOff, UserX, MapPin, CheckCircle2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ShieldOff, UserX, MapPin, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // --- Flag logic ---

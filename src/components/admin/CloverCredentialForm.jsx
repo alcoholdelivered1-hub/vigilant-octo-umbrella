@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, KeyRound, Save, ExternalLink, Link2, CheckCircle2, AlertCircle, Copy } from 'lucide-react';
+import { Loader2, KeyRound, Save, ExternalLink, Link2, CheckCircle2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BEVERAGE_KING_STORE_ID = '6a32d14d09b760f592dbf19e';

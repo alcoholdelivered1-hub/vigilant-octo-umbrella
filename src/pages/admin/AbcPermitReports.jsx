@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Loader2, Printer, ExternalLink, FileText, Search, Info } from 'lucide-react';
+import { Printer, ExternalLink, FileText, Search, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';

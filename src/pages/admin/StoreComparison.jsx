@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, Legend
 } from 'recharts';
-import { Loader2, TrendingUp, Star, Truck, ShoppingBag, Clock, Trophy, ArrowUpDown } from 'lucide-react';
+import { Loader2, TrendingUp, Star, ShoppingBag, Clock, Trophy, ArrowUpDown } from 'lucide-react';
 import { differenceInMinutes, parseISO } from 'date-fns';
 
 const SORT_OPTIONS = [

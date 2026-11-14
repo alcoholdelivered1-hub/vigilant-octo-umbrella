@@ -5,7 +5,6 @@ import { Truck, User, Package, Circle, ToggleLeft, ToggleRight, ChevronDown, Che
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
 
 const STATUS_COLOR = {
   available: 'text-emerald-500',

@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Plus, ShieldCheck } from 'lucide-react';
 import StarRating from '@/components/shared/StarRating';
-import StatusBadge from '@/components/shared/StatusBadge';
 import { toast } from 'sonner';
 
 export default function AdminDrivers() {

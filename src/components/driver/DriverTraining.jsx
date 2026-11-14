@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, BookOpen, Award, AlertTriangle, ChevronRight, RefreshCw, Download, Loader2, Share2, Eye } from 'lucide-react';
+import { CheckCircle2, XCircle, BookOpen, Award, AlertTriangle, ChevronRight, RefreshCw, Loader2, Share2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 

@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import {
   ShieldCheck, Award, BookOpen, CheckCircle2, Download, Share2,
-  Printer, ExternalLink, Loader2, AlertTriangle, Scale, Truck, ClipboardList
+  Printer, ExternalLink, Loader2, Scale, Truck, ClipboardList
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';

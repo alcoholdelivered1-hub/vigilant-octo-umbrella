@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { format, subDays, startOfDay, parseISO, isWithinInterval } from 'date-fns';
+import { format, subDays, startOfDay, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingUp, Package, ShoppingBag, CheckCircle2, Clock, XCircle, SkipForward } from 'lucide-react';
+import { DollarSign, TrendingUp, ShoppingBag, CheckCircle2, Clock, XCircle, SkipForward } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const RANGES = [

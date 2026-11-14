@@ -34,7 +34,7 @@ export function useOrderNotifications(userEmail, onUpdate) {
   useEffect(() => {
     if (!userEmail) return;
 
-    const unsubscribe = base44.entities.Order.subscribe((event) => {  // eslint-disable-line
+    const unsubscribe = base44.entities.Order.subscribe((event) => {   
       const order = event.data;
 
       // Only care about this user's orders

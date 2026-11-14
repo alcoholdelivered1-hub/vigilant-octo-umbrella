@@ -3,8 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ReferralSection from '@/components/profile/ReferralSection';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { User, LogOut, Trash2, ShieldCheck, AlertTriangle, ChevronRight, Star } from 'lucide-react';
+import { User, LogOut, Trash2, ShieldCheck, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, XCircle, ChevronRight, ChevronLeft, Award, ShieldCheck, AlertTriangle, BookOpen, Download, Loader2, Share2, ExternalLink } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronRight, ChevronLeft, Award, ShieldCheck, AlertTriangle, Download, Loader2, Share2 } from 'lucide-react';
 import TrainingVideoPlayer from '@/components/training/TrainingVideoPlayer';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';

@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, Trophy, Truck, DollarSign, Star, TrendingUp,
-  RefreshCw, Loader2, MapPin, Medal
+  RefreshCw, Loader2, MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

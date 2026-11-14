@@ -38,11 +38,11 @@ export function useFCMPush({ firebaseConfig, vapidKey, storeId, driverId } = {})
         }
 
         // Register service worker and pass it the config
-        const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const config = encodeURIComponent(JSON.stringify(firebaseConfig));
+        const swReg = await navigator.serviceWorker.register(
+          `/firebase-messaging-sw.js?firebaseConfig=${config}`,
+        );
         await navigator.serviceWorker.ready;
-
-        // Send firebase config to SW
-        swReg.active?.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
 
         // Request notification permission
         const permission = await Notification.requestPermission();

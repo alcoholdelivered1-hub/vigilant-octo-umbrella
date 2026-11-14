@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Truck, Star, Clock, Package, TrendingUp, Loader2 } from 'lucide-react';
+import { Truck, Star, Clock, Package, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { differenceInMinutes, parseISO } from 'date-fns';
 

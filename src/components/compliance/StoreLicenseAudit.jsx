@@ -3,8 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { differenceInDays, parseISO } from 'date-fns';
 import {
-  AlertTriangle, CheckCircle2, XCircle, Store, Search,
-  FileText, Clock, RefreshCw, Loader2, ChevronDown, ChevronUp
+  AlertTriangle, CheckCircle2, XCircle, Store, Search, RefreshCw, Loader2, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';

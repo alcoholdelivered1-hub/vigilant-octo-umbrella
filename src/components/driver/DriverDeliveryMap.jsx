@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Truck, CheckCircle2, Navigation, Package, MapPin, Loader2, AlertTriangle, Route, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, X } from 'lucide-react';
+import { Truck, CheckCircle2, Navigation, Package, MapPin, Loader2, Route, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
 import CachedTileLayer from '@/components/driver/CachedTileLayer';
 import OfflineCacheButton from '@/components/driver/OfflineCacheButton';
 

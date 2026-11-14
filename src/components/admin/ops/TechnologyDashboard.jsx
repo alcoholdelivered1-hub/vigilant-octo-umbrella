@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle2, XCircle, Server, CreditCard, Bell, MapPin, ShieldCheck, Database, Wifi } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export default function TechnologyDashboard({ tech }) {

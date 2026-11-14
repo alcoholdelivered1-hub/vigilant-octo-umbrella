@@ -1,5 +1,5 @@
 import React from 'react';
-import { differenceInDays, parseISO, addYears } from 'date-fns';
+import { differenceInDays, parseISO } from 'date-fns';
 import { AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 

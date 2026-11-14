@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   Download, Copy, Check, Car, Send, Users, MapPin, DollarSign,
   Facebook, Instagram, Music2, Twitter, Search, Mail, MessageSquare,
-  Megaphone, Loader2, Target, TrendingUp, Zap, ShieldCheck
+  Megaphone, Loader2, Target, TrendingUp, Zap
 } from 'lucide-react';
 
 const DRIVER_IMAGE = 'https://media.base44.com/images/public/69cf025b60e5f22c0c72f042/1df2ab70b_generated_image.png';

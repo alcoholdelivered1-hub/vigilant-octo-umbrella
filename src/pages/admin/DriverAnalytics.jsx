@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { DollarSign, Truck, Star, TrendingUp, Loader2, Users } from 'lucide-react';
+import { DollarSign, Truck, Star, Loader2, Users } from 'lucide-react';
 import StarRating from '@/components/shared/StarRating';
 import { cn } from '@/lib/utils';
 

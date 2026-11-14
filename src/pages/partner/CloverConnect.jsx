@@ -54,7 +54,7 @@ export default function CloverConnect({ storeId: propStoreId }) {
         }
       } catch (_) { /* ignore */ }
     })();
-  }, [storeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storeId]);  
 
   // Auto-capture ?code= from the Clover redirect
   useEffect(() => {

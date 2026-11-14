@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ComposedChart, Line, Area
+import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ComposedChart, Line
 } from 'recharts';
 import { DollarSign, Truck, Star, TrendingUp } from 'lucide-react';
-import { subDays, parseISO, format, isAfter, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import { subDays, parseISO, format, isAfter, startOfWeek, eachDayOfInterval } from 'date-fns';
 
 function StatCard({ icon: Icon, label, value, sub, color = 'text-primary', bg = 'bg-primary/10' }) {
   return (

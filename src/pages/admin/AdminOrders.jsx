@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, CheckSquare, Square, Zap } from 'lucide-react';
+import { Search, Zap } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { toast } from 'sonner';
 import OrderChat from '@/components/messaging/OrderChat';

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Wine, ShieldCheck, ArrowRight, ArrowLeft, CheckCircle2, Star, Gift, MapPin, Smartphone, Mail, Loader2, Truck } from 'lucide-react';
+import { Wine, ArrowRight, ArrowLeft, CheckCircle2, Star, Gift, MapPin, Smartphone, Mail, Loader2, Truck } from 'lucide-react';
 import FacebookFollowLink from '@/components/shared/FacebookFollowLink';
 
 import { toast } from 'sonner';

@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
-  Landmark, ExternalLink, Loader2, CheckCircle2, AlertTriangle, Clock,
+  Landmark, Loader2, CheckCircle2, AlertTriangle, Clock,
   DollarSign, ArrowDownToLine, ArrowUpFromLine, RefreshCw, Settings,
 } from 'lucide-react';
 

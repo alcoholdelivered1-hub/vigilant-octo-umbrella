@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ShieldCheck, MapPin, Truck, Clock, Wine, ArrowRight, CheckCircle2, Zap, Star, Phone } from 'lucide-react';
 import AgeGate from '@/components/shared/AgeGate';
 import LandingSignup from '@/components/shared/LandingSignup';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 const features = [
   { icon: ShieldCheck, title: 'Age Verified', desc: 'Strict 21+ verification at checkout and delivery per Arkansas ABC.' },

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Share2, Copy, Check, Facebook, MessageCircle, Mail, Send, QrCode, Link2 } from 'lucide-react';
+import { Share2, Copy, Check, Facebook, MessageCircle, Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SHARE_TEXTS = {

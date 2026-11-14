@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Flame, Clock, Calendar, BarChart2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { subDays, subHours, parseISO, getHours, format } from 'date-fns';
+import { subDays, subHours, parseISO, getHours } from 'date-fns';
 import OrderHeatmap from '@/components/admin/OrderHeatmap';
 
 const TIME_FILTERS = [

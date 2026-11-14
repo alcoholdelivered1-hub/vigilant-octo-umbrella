@@ -4,7 +4,6 @@ import { base44 } from '@/api/base44Client';
 import { Package, Search, Loader2, AlertTriangle, Edit2, Check, X, Tag } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import PriceEditor from '@/components/partner/PriceEditor';
 

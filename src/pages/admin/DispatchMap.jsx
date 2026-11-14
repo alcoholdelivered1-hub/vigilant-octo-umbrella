@@ -3,10 +3,8 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, Store, MapPin, Package, Truck, AlertCircle, CheckCircle2, Layers, Users } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import DispatchOverlayMap from '@/components/admin/DispatchOverlayMap';
-import StatusBadge from '@/components/shared/StatusBadge';
 import { format } from 'date-fns';
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'pickup_ready', 'in_transit'];

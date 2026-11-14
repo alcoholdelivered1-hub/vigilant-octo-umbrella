@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Package, Store, Truck, CheckCircle2, Clock, MapPin, ShieldCheck, ChevronRight, RefreshCw, Phone, XCircle, Loader2 } from 'lucide-react';
+import { Package, Store, Truck, CheckCircle2, Clock, MapPin, ShieldCheck, ChevronRight, RefreshCw, XCircle, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

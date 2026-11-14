@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Camera, CheckCircle2, AlertTriangle, Loader2, X, MapPin, Clock } from 'lucide-react';
+import { Package, Camera, CheckCircle2, AlertTriangle, Loader2, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
 const REQUIRED_ATTESTATIONS = [

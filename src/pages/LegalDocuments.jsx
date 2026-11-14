@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import {
-  FileText, ShieldCheck, ClipboardList, BookOpen, Scale, Lock, ArrowRight, Printer, Wine, Download, Loader2
+  FileText, ShieldCheck, ClipboardList, BookOpen, Scale, Lock, ArrowRight, Wine, Download, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';

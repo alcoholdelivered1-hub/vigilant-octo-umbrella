@@ -2,23 +2,17 @@
  * Firebase Cloud Messaging Service Worker
  * Handles background push notifications when the app is not in the foreground.
  *
- * The firebaseConfig values below must match src/lib/firebaseConfig.js.
- * Get them from Firebase Console → Project Settings → Your apps → Web app → Config
+ * Firebase's public web-app config is supplied in this service worker's query
+ * string by useFCMPush, so it remains available when the worker is restarted.
  */
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: "",
-};
+const encodedConfig = new URL(self.location.href).searchParams.get('firebaseConfig');
+const firebaseConfig = encodedConfig ? JSON.parse(encodedConfig) : null;
 
-if (firebaseConfig.apiKey) {
+if (firebaseConfig?.apiKey) {
   firebase.initializeApp(firebaseConfig);
 
   const messaging = firebase.messaging();

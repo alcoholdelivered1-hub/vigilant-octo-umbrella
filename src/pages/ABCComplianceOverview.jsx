@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldCheck, Scale, BookOpen, CreditCard, MapPin, Truck, FileText,
-  CheckCircle2, AlertTriangle, ArrowRight, Printer, Download, Wine,
-  Users, Clock, Lock, ClipboardList, Building2, Phone, Globe, ChevronDown, ChevronUp
+  CheckCircle2, AlertTriangle, ArrowRight, Printer, Wine, ClipboardList, Building2, Phone, Globe, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

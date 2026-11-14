@@ -1,9 +1,7 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { cn } from '@/lib/utils';
-import { Clock, Truck, MapPin, Package } from 'lucide-react';
-import { format } from 'date-fns';
+import { MapPin } from 'lucide-react';
 
 // Fix Leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;

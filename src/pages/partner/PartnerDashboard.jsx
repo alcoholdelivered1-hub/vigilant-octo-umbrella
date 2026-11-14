@@ -2,18 +2,18 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DollarSign, ShoppingBag, TrendingUp, Clock, Download,
-  CheckCircle2, AlertCircle, Loader2, Store, CalendarDays, MessageCircle, Package, Trophy
+  CheckCircle2, AlertCircle, Loader2, Store, CalendarDays, MessageCircle, Trophy
 } from 'lucide-react';
 import OrderChat from '@/components/messaging/OrderChat';
 import DriverPerformance from '@/components/partner/DriverPerformance';
-import { format, subDays, startOfDay, parseISO, isAfter } from 'date-fns';
+import { format, subDays, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 

@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowLeft, AlertTriangle, Package, Store, RefreshCw, Loader2,
+  ArrowLeft, AlertTriangle, Store, RefreshCw, Loader2,
   CheckCircle2, Search, ChevronDown, ChevronUp, Bell
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

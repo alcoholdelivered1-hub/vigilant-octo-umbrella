@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 export default function RetailerCallSheet() {
   const queryClient = useQueryClient();

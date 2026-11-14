@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Copy, Check, Users, TrendingUp, Gift, QrCode, Share2, Loader2 } from 'lucide-react';
+import { Copy, Check, TrendingUp, Gift, QrCode, Share2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import SocialShareButtons from '@/components/shared/SocialShareButtons';

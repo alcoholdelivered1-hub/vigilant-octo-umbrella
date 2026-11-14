@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Plus, Pencil, Trash2, CheckCircle2, XCircle, Clock, DollarSign, Package, Loader2, ToggleLeft, ToggleRight, ExternalLink, AlertTriangle, Info, ShieldCheck, Calendar } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, CheckCircle2, Clock, Loader2, ToggleLeft, ToggleRight, ExternalLink, Info, ShieldCheck, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

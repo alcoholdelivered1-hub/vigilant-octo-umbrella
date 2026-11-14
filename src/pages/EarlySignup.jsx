@@ -11,7 +11,6 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { differenceInYears, parseISO } from 'date-fns';
-import SocialShareButtons from '@/components/shared/SocialShareButtons';
 import ReferralCard from '@/components/signup/ReferralCard';
 import LiveSignupCounter from '@/components/signup/LiveSignupCounter';
 import FacebookFollowLink from '@/components/shared/FacebookFollowLink';

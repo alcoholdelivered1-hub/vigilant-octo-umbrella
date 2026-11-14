@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Marker, Popup, Polyline, Tooltip } from 'react-leaflet';
-import L from 'leaflet';
 import {
   Truck, Navigation, CornerDownRight, CornerDownLeft,
   ArrowUp, ArrowUpRight, ArrowUpLeft, Flag, Merge,

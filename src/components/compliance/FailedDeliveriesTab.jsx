@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { format, subDays, startOfWeek, startOfMonth, startOfYear, isAfter } from 'date-fns';
+import { format, subDays, isAfter } from 'date-fns';
 import { Download, ShieldAlert, TrendingDown, FileBarChart } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,

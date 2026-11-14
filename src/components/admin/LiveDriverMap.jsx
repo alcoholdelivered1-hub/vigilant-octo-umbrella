@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import React, { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Truck, Package, MapPin, Layers, Navigation, Volume2, VolumeX, Route } from 'lucide-react';
+import { Package, Layers, Navigation, Volume2, VolumeX, Route } from 'lucide-react';
 import AnimatedDriverMarker from '@/components/admin/AnimatedDriverMarker';
 import OptimizedRouteOverlay from '@/components/admin/OptimizedRouteOverlay';
 
