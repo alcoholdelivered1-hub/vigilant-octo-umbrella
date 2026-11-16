@@ -1,0 +1,4 @@
+{
+  "name": "syncAllStoreInventory",
+  "entry": "entry.ts"
+}

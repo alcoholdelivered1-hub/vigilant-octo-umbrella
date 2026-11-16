@@ -1,0 +1,16 @@
+{
+  "name": "notifyDriverAssignment",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "When a driver is assigned to an order, send them an email notification with pickup details.",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Notify Driver on Assignment"
+    }
+  ]
+}

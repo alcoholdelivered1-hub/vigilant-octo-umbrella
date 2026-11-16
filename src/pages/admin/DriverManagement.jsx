@@ -113,7 +113,8 @@ function DriverCard({ driver, orders, onAssign, onToggleShift }) {
 function AssignOrderPanel({ driver, orders, onAssign }) {
   const [selectedOrder, setSelectedOrder] = useState('');
   const unassigned = orders.filter(o =>
-    ['pending', 'confirmed', 'preparing', 'pickup_ready'].includes(o.status) && !o.driver_id
+    ['confirmed', 'preparing', 'pickup_ready'].includes(o.status) && !o.driver_id &&
+    o.stripe_payment_status === 'paid' && o.id_verified_at_checkout === true && o.is_in_legal_zone === true
   );
 
   return (
@@ -171,8 +172,8 @@ export default function DriverManagement() {
     mutationFn: ({ orderId, driver }) =>
       base44.entities.Order.update(orderId, {
         driver_id: driver.id,
+        driver_email: driver.email,
         driver_name: driver.name,
-        status: 'confirmed',
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders-mgmt'] });
@@ -199,7 +200,10 @@ export default function DriverManagement() {
   // Summary stats
   const activeDrivers = drivers.filter(d => d.status !== 'offline' && d.status !== 'suspended');
   const onDelivery = drivers.filter(d => d.status === 'on_delivery');
-  const unassignedOrders = orders.filter(o => !o.driver_id && ['pending', 'confirmed'].includes(o.status));
+  const unassignedOrders = orders.filter(o =>
+    !o.driver_id && o.status === 'confirmed' &&
+    o.stripe_payment_status === 'paid' && o.id_verified_at_checkout === true && o.is_in_legal_zone === true
+  );
 
   const isLoading = loadingDrivers || loadingOrders;
 

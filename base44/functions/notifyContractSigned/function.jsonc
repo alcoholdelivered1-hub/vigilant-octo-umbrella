@@ -1,0 +1,16 @@
+{
+  "name": "notifyContractSigned",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "Emails the manager when a retailer's onboarding status changes to contract_signed.",
+      "entity_name": "Store",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Notify When Retailer Contract Signed"
+    }
+  ]
+}

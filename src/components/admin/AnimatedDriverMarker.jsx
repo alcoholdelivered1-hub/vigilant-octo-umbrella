@@ -131,7 +131,8 @@ export default function AnimatedDriverMarker({ driver, icon, audioEnabled }) {
     fetchRoute();
     const interval = setInterval(fetchRoute, 15000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [dest?.delivery_latitude, dest?.delivery_longitude, driver.lat, driver.lng]);
+     
+  }, [dest?.delivery_latitude, dest?.delivery_longitude]);
 
   const maneuverInfo = route?.nextManeuver ? getManeuverInfo(route.nextManeuver) : null;
   const ManeuverIcon = maneuverInfo?.icon || ArrowUp;

@@ -1,0 +1,16 @@
+{
+  "name": "sendRetailerOnboardingEmail",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "When a new liquor store is created (added to the onboarding list), automatically sends the partner portal invite email via Gmail and advances onboarding status to 'contract_sent'.",
+      "entity_name": "Store",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Auto-Send Partner Portal Invite on New Store"
+    }
+  ]
+}

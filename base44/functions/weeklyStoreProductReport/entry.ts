@@ -1,28 +1,10 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
-
-function buildRawEmail(to, subject, html, fromName) {
-  const fromHeader = `${fromName} <alcohol.delivered1@gmail.com>`;
-  const message = [
-    `From: ${fromHeader}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: text/html; charset=UTF-8`,
-    ``,
-    html,
-  ].join('\r\n');
-  return btoa(unescape(encodeURIComponent(message)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
-
-    // Scheduled tasks must only run as admin
-    const user = await base44.auth.me().catch(() => null);
-    if (user && user.role !== 'admin') {
-        return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     // Fetch all delivered orders from the past 7 days
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -131,18 +113,12 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'STORE_MANAGER_EMAIL secret not set' }, { status: 500 });
     }
 
-    // Use Gmail to send — admin email may not be a registered app user
-    const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
-    const raw = buildRawEmail(adminEmail, `📊 Weekly Sales Report — ${weekLabel}`, html, 'Alcohol Delivered — Weekly Report');
-    const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ raw }),
+    await base44.asServiceRole.integrations.Core.SendEmail({
+        to: adminEmail,
+        from_name: 'Alcohol Delivered — Weekly Report',
+        subject: `📊 Weekly Sales Report — ${weekLabel}`,
+        body: html,
     });
-    if (!gmailRes.ok) {
-        const errBody = await gmailRes.text();
-        throw new Error(`Gmail API error: ${gmailRes.status} — ${errBody}`);
-    }
 
     return Response.json({
         success: true,

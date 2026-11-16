@@ -1,0 +1,15 @@
+{
+  "name": "notifyManagerNewRetailer",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "Store",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Notify Manager When New Retailer Onboards"
+    }
+  ]
+}

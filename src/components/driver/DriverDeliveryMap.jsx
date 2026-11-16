@@ -1,15 +1,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { base44 } from '@/api/base44Client';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Truck, CheckCircle2, Navigation, Package, MapPin, Loader2, Route, RefreshCw, Maximize2, Minimize2, Volume2, VolumeX, X } from 'lucide-react';
+import { Truck, Navigation, Package, MapPin, Loader2, Route, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import CachedTileLayer from '@/components/driver/CachedTileLayer';
-import OfflineCacheButton from '@/components/driver/OfflineCacheButton';
+import { format } from 'date-fns';
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -53,21 +52,6 @@ const DRIVER_ICON = L.divIcon({
   className: '',
 });
 
-// Store / retailer pickup marker
-const STORE_ICON = L.divIcon({
-  html: `<div style="
-    background:#7c3aed;color:white;border-radius:50% 50% 50% 0;
-    transform:rotate(-45deg);
-    width:36px;height:36px;display:flex;align-items:center;justify-content:center;
-    border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);
-    font-weight:700;font-size:16px;
-  "><span style="transform:rotate(45deg)">🏪</span></div>`,
-  iconSize: [36, 36],
-  iconAnchor: [18, 36],
-  popupAnchor: [0, -38],
-  className: '',
-});
-
 const STATUS_COLOR = {
   confirmed: '#6366f1',
   preparing: '#f59e0b',
@@ -82,29 +66,6 @@ async function geocode(address) {
   const data = await res.json();
   if (data.length > 0) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
   return null;
-}
-
-// Haversine distance in miles
-function haversineMiles(a, b) {
-  const R = 3958.8;
-  const dLat = (b[0] - a[0]) * Math.PI / 180;
-  const dLon = (b[1] - a[1]) * Math.PI / 180;
-  const la1 = a[0] * Math.PI / 180;
-  const la2 = b[0] * Math.PI / 180;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-}
-
-// Speak via browser Text-to-Speech
-function speak(text) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95;
-    u.pitch = 1;
-    speechSynthesis.speak(u);
-  } catch {}
 }
 
 // Nearest-neighbor route optimization starting from driver's position
@@ -144,31 +105,7 @@ function FitBounds({ points }) {
   return null;
 }
 
-// Recenter map to follow the driver as they move
-function FollowDriver({ position, enabled }) {
-  const map = useMap();
-  const lastRef = useRef(null);
-  useEffect(() => {
-    if (!enabled || !position) return;
-    const last = lastRef.current;
-    if (!last || Math.abs(position[0] - last[0]) > 0.00005 || Math.abs(position[1] - last[1]) > 0.00005) {
-      lastRef.current = position;
-      map.panTo(position, { animate: true });
-    }
-  }, [position, enabled]);
-  return null;
-}
-
-// Force Leaflet to recalculate size when container resizes (fullscreen toggle)
-function InvalidateOnResize({ trigger }) {
-  const map = useMap();
-  useEffect(() => {
-    setTimeout(() => map.invalidateSize(), 120);
-  }, [trigger]);
-  return null;
-}
-
-function OrderCard({ order, index, onEnRoute, onDelivered, isUpdating }) {
+function OrderCard({ order, index, onEnRoute, isUpdating }) {
   const statusColor = STATUS_COLOR[order.status] || '#94a3b8';
   return (
     <div className={`bg-card border-l-4 rounded-xl p-4 space-y-3 shadow-sm`}
@@ -216,17 +153,16 @@ function OrderCard({ order, index, onEnRoute, onDelivered, isUpdating }) {
         )}
 
         {order.status === 'in_transit' && (
-          <Button size="sm" className="flex-1 text-xs h-8 bg-emerald-600 hover:bg-emerald-700" onClick={() => onDelivered(order)} disabled={isUpdating}>
-            {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
-            Delivered
-          </Button>
+          <div className="flex-1 text-center text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-2">
+            Verify ID in My Deliveries
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, autoFullscreen }) {
+export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail }) {
   const queryClient = useQueryClient();
   const [driverPos, setDriverPos] = useState(null);
   const [geocoded, setGeocoded] = useState([]);
@@ -234,23 +170,12 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
   const [routePoints, setRoutePoints] = useState([]);
   const [updatingId, setUpdatingId] = useState(null);
   const geocodeCache = useRef({});
-  const [fullscreen, setFullscreen] = useState(false);
-  const [follow, setFollow] = useState(true);
-  const [muted, setMuted] = useState(false);
-  const voiceRef = useRef({ announced: new Set(), approaching: new Set(), arrived: new Set() });
 
-  // Cache stores so the retailer pickup location can be plotted on the map
-  const { data: stores = [] } = useQuery({
-    queryKey: ['driver-stores-cache'],
-    queryFn: () => base44.entities.Store.list('name', 200),
-    staleTime: 10 * 60 * 1000,
-  });
-  const storeMap = Object.fromEntries(stores.map(s => [s.id, s]));
-
-  // Active orders (regardless of creation date — re-activated/reassigned orders
-  // may have an older created_date but still need to be driven today)
+  // Today's active orders only
+  const today = format(new Date(), 'yyyy-MM-dd');
   const activeOrders = rawOrders.filter(o =>
-    ['confirmed', 'preparing', 'pickup_ready', 'in_transit'].includes(o.status)
+    ['confirmed', 'preparing', 'pickup_ready', 'in_transit'].includes(o.status) &&
+    o.created_date?.startsWith(today)
   );
 
   // GPS watch
@@ -281,63 +206,21 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
     }));
     const optimized = optimizeRoute(driverPos, results);
     setGeocoded(optimized);
-    // Build polyline: driver → store (pickup) → delivery stop ...
-    // For orders not yet picked up, the driver must visit the retailer first.
-    const seenStores = new Set();
+    // Build polyline: driver → stop 1 → stop 2 → ...
     const pts = [];
     if (driverPos) pts.push(driverPos);
-    optimized.forEach(o => {
-      if (['confirmed', 'preparing', 'pickup_ready'].includes(o.status) && o.store_id) {
-        const s = storeMap[o.store_id];
-        if (s && s.latitude && s.longitude && !seenStores.has(s.id)) {
-          seenStores.add(s.id);
-          pts.push([s.latitude, s.longitude]);
-        }
-      }
-      if (o._coords) pts.push(o._coords);
-    });
+    optimized.forEach(o => { if (o._coords) pts.push(o._coords); });
     setRoutePoints(pts);
     setGeocoding(false);
-  }, [driverPos, stores]);
+  }, [driverPos]);
 
   useEffect(() => {
     if (activeOrders.length > 0) runGeocode(activeOrders);
     else { setGeocoded([]); setRoutePoints([]); }
   }, [activeOrders.length, rawOrders]);
 
-  // Voice turn-by-turn navigation
-  useEffect(() => {
-    if (muted || !driverPos || geocoded.length === 0 || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    const next = geocoded.find(o => o._coords && ['confirmed', 'preparing', 'pickup_ready', 'in_transit'].includes(o.status));
-    if (!next || !next._coords) return;
-    const dist = haversineMiles(driverPos, next._coords);
-    const idx = geocoded.indexOf(next);
-    const id = next.id;
-
-    if (!voiceRef.current.announced.has(id) && dist > 0.5) {
-      voiceRef.current.announced.add(id);
-      speak(`Route active. Next stop ${idx + 1}, ${next.customer_name}, approximately ${dist.toFixed(1)} miles away.`);
-    }
-    if (dist < 0.3 && dist > 0.05 && !voiceRef.current.approaching.has(id)) {
-      voiceRef.current.approaching.add(id);
-      speak(`Approaching stop ${idx + 1}. Get ready to deliver to ${next.customer_name}.`);
-    }
-    if (dist < 0.05 && !voiceRef.current.arrived.has(id)) {
-      voiceRef.current.arrived.add(id);
-      speak(`You have arrived at stop ${idx + 1}, ${next.delivery_address}.`);
-    }
-  }, [driverPos, geocoded, muted]);
-
-  // Auto-fullscreen when triggered (e.g. driver accepts an order)
-  useEffect(() => {
-    if (autoFullscreen) {
-      setFullscreen(true);
-      setFollow(true);
-    }
-  }, [autoFullscreen]);
-
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
+    mutationFn: ({ id, action }) => base44.functions.invoke('updateDriverOrderStatus', { order_id: id, action }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['driver-orders'] });
       setUpdatingId(null);
@@ -347,50 +230,12 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
 
   const handleEnRoute = async (order) => {
     setUpdatingId(order.id);
-    updateMutation.mutate({
-      id: order.id,
-      data: { status: 'in_transit', pickup_confirmed_at: new Date().toISOString() },
-    });
+    updateMutation.mutate({ id: order.id, action: 'pickup' });
     toast.success(`En route to ${order.customer_name}!`);
   };
 
-  const handleDelivered = async (order) => {
-    setUpdatingId(order.id);
-    updateMutation.mutate({
-      id: order.id,
-      data: {
-        status: 'delivered',
-        id_verified_at_delivery: true,
-        delivery_confirmed_at: new Date().toISOString(),
-      },
-    });
-    // Log ID verification
-    base44.entities.IDVerification.create({
-      customer_email: order.customer_email,
-      customer_name: order.customer_name,
-      order_id: order.id,
-      verification_type: 'delivery',
-      is_verified: true,
-      verified_by: userEmail,
-    }).catch(() => {});
-    toast.success(`✅ Delivered to ${order.customer_name}!`);
-  };
-
-  // Retailer pickup points to plot (one per store for orders not yet picked up)
-  const storeStops = [];
-  const seenStoreIds = new Set();
-  activeOrders.forEach(o => {
-    if (!['confirmed', 'preparing', 'pickup_ready'].includes(o.status) || !o.store_id) return;
-    const s = storeMap[o.store_id];
-    if (s && s.latitude && s.longitude && !seenStoreIds.has(s.id)) {
-      seenStoreIds.add(s.id);
-      storeStops.push({ store: s, order: o });
-    }
-  });
-
   const allPoints = [
     ...(driverPos ? [driverPos] : []),
-    ...storeStops.map(ss => [ss.store.latitude, ss.store.longitude]),
     ...geocoded.filter(o => o._coords).map(o => o._coords),
   ];
 
@@ -414,9 +259,6 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
         </div>
       </div>
 
-      {/* Offline cache controls */}
-      <OfflineCacheButton routePoints={allPoints} />
-
       {activeOrders.length === 0 ? (
         <div className="text-center py-16 bg-card border rounded-2xl">
           <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -426,16 +268,17 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
       ) : (
         <>
           {/* Map */}
-          <div className={`relative overflow-hidden border shadow-sm ${fullscreen ? 'fixed inset-0 z-[9999] border-0' : 'rounded-2xl'}`} style={fullscreen ? { height: '100vh' } : { height: 380 }}>
+          <div className="rounded-2xl overflow-hidden border shadow-sm" style={{ height: 380 }}>
             <MapContainer
               center={driverPos || PINE_BLUFF}
-              zoom={13}
+              zoom={12}
               style={{ width: '100%', height: '100%' }}
             >
-              <CachedTileLayer />
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; OpenStreetMap contributors'
+              />
 
-              <InvalidateOnResize trigger={fullscreen} />
-              <FollowDriver position={driverPos} enabled={follow} />
               {allPoints.length > 0 && <FitBounds points={allPoints} />}
 
               {/* Optimized route polyline */}
@@ -452,35 +295,6 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
                   <Popup><span className="font-semibold text-sm">📍 You</span></Popup>
                 </Marker>
               )}
-
-              {/* Retailer pickup markers */}
-              {storeStops.map(({ store, order }) => (
-                <Marker
-                  key={`store-${store.id}`}
-                  position={[store.latitude, store.longitude]}
-                  icon={STORE_ICON}
-                >
-                  <Popup minWidth={220} maxWidth={280}>
-                    <div className="space-y-2 py-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-sm">🏪 Pickup · {store.name}</span>
-                      </div>
-                      <p className="text-xs text-gray-600">{store.address}, {store.city}, {store.state} {store.zip_code || ''}</p>
-                      <p className="text-xs text-gray-500">Order {order.order_number} · {order.items?.length || 0} items</p>
-                      <p className="text-xs text-purple-600 font-medium">Pick up the order here before delivering to {order.customer_name}.</p>
-                      <div className="flex gap-1.5 pt-1">
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${store.address}, ${store.city}, ${store.state} ${store.zip_code || ''}`)}&travelmode=driving`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="flex-1 text-center bg-purple-600 text-white text-xs py-1.5 rounded font-medium"
-                        >
-                          Navigate to Store
-                        </a>
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
 
               {/* Delivery stop markers */}
               {geocoded.map((order, i) => {
@@ -514,10 +328,9 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
                             </button>
                           )}
                           {order.status === 'in_transit' && (
-                            <button onClick={() => handleDelivered(order)}
-                              className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded font-medium">
-                              Delivered ✓
-                            </button>
+                            <span className="flex-1 text-center bg-amber-100 text-amber-800 text-xs py-1.5 rounded font-medium">
+                              Verify ID in My Deliveries
+                            </span>
                           )}
                         </div>
                       </div>
@@ -526,40 +339,6 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
                 );
               })}
             </MapContainer>
-
-            {/* Floating controls */}
-            <div className="absolute top-3 right-3 z-[10000] flex flex-col gap-2">
-              <button
-                onClick={() => setMuted(m => !m)}
-                className="w-10 h-10 rounded-xl bg-white/95 shadow-md flex items-center justify-center hover:bg-white transition-colors"
-                title={muted ? 'Unmute voice' : 'Mute voice'}
-              >
-                {muted ? <VolumeX className="w-5 h-5 text-slate-600" /> : <Volume2 className="w-5 h-5 text-slate-600" />}
-              </button>
-              <button
-                onClick={() => setFollow(f => !f)}
-                className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center transition-colors ${follow ? 'bg-blue-600 text-white' : 'bg-white/95 text-slate-600 hover:bg-white'}`}
-                title={follow ? 'Stop following' : 'Follow my location'}
-              >
-                <Navigation className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setFullscreen(f => !f)}
-                className="w-10 h-10 rounded-xl bg-white/95 shadow-md flex items-center justify-center hover:bg-white transition-colors"
-                title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              >
-                {fullscreen ? <Minimize2 className="w-5 h-5 text-slate-600" /> : <Maximize2 className="w-5 h-5 text-slate-600" />}
-              </button>
-            </div>
-
-            {fullscreen && (
-              <button
-                onClick={() => setFullscreen(false)}
-                className="absolute top-3 left-3 z-[10000] px-4 h-10 rounded-xl bg-white/95 shadow-md flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:bg-white transition-colors"
-              >
-                <X className="w-4 h-4" /> Exit Fullscreen
-              </button>
-            )}
           </div>
 
           {/* Legend */}
@@ -573,9 +352,6 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
             <span className="flex items-center gap-1">
               <span className="text-base leading-none">🚗</span> You
             </span>
-            <span className="flex items-center gap-1">
-              <span className="text-base leading-none">🏪</span> Store pickup
-            </span>
           </div>
 
           {/* Ordered stop list */}
@@ -587,7 +363,6 @@ export default function DriverDeliveryMap({ orders: rawOrders = [], userEmail, a
                 order={order}
                 index={i}
                 onEnRoute={handleEnRoute}
-                onDelivered={handleDelivered}
                 isUpdating={updatingId === order.id}
               />
             ))}

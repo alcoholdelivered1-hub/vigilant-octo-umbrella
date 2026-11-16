@@ -116,9 +116,6 @@ export default function InventoryPanel({ storeId }) {
                           {product.category}
                         </span>
                       )}
-                      {product.pack_size && product.pack_size !== 'Single' && (
-                        <span className="text-xs text-primary font-medium">{product.pack_size}</span>
-                      )}
                       <span className="text-xs font-semibold text-emerald-700">${(product.price || 0).toFixed(2)}</span>
                     </div>
                   </div>

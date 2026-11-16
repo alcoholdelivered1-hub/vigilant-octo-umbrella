@@ -1,0 +1,4 @@
+{
+  "name": "sendFCMPush",
+  "entry": "entry.ts"
+}

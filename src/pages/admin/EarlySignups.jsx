@@ -14,6 +14,13 @@ const STATUS_COLORS = {
   rejected:  'bg-red-100 text-red-700',
 };
 
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'contacted', label: 'Contacted' },
+  { value: 'converted', label: 'Converted' },
+  { value: 'rejected', label: 'Rejected' },
+];
+
 const GIG_LABELS = {
   doordash: 'DoorDash', uber_eats: 'Uber Eats', instacart: 'Instacart',
   grubhub: 'GrubHub', multiple: 'Multiple apps', none: 'None', other: 'Other',
@@ -94,10 +101,7 @@ export default function EarlySignups() {
           <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="contacted">Contacted</SelectItem>
-            <SelectItem value="converted">Converted</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
+            {STATUS_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -170,16 +174,20 @@ export default function EarlySignups() {
                       {s.created_date ? format(new Date(s.created_date), 'MMM d, yyyy') : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <select
+                      <Select
                         value={s.status || 'pending'}
-                        onChange={e => updateMutation.mutate({ id: s.id, status: e.target.value })}
-                        className={cn('text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer appearance-none', STATUS_COLORS[s.status] || STATUS_COLORS.pending)}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="contacted">Contacted</option>
-                        <option value="converted">Converted</option>
-                        <option value="rejected">Rejected</option>
-                      </select>
+                        onValueChange={value => updateMutation.mutate({ id: s.id, status: value })}>
+                        <SelectTrigger
+                          aria-label={`Status for ${s.full_name || s.email}`}
+                          className={cn('h-7 w-auto gap-1 rounded-full border-0 px-2.5 text-xs font-semibold shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3', STATUS_COLORS[s.status] || STATUS_COLORS.pending)}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent align="end">
+                          {STATUS_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value} className="text-xs font-medium">{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </td>
                   </tr>
                 ))}

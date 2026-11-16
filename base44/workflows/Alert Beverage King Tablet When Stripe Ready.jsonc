@@ -1,0 +1,45 @@
+{
+  "description": "Polls Beverage King's Stripe account every 5 minutes. The moment it's fully verified (charges + payouts enabled), fires a tablet push notification and email alerting them to fill Richard's pending order(s).",
+  "name": "Alert Beverage King Tablet When Stripe Ready",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "alert_bk_tablet_stripe_ready",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_and_alert": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "alertBeverageKingTablet",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check BK Stripe & alert tablet",
+            "description": "Polls BK readiness; sends push + email when ready"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/5 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "after_count",
+      "ends_on_date": null,
+      "ends_after_count": 8640
+    }
+  }
+}

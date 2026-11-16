@@ -78,7 +78,7 @@ export default function PayoutSettings() {
             <div className="bg-muted/50 rounded-xl p-3 text-xs text-muted-foreground space-y-1">
               <p><strong>Account ID:</strong> {user.stripe_connect_account_id}</p>
               <p><strong>Payout schedule:</strong> Every Monday (weekly)</p>
-              <p><strong>Earnings:</strong> $4.75 per delivery + 100% of tips</p>
+              <p><strong>Earnings:</strong> $3.00 per delivery + 100% of tips</p>
             </div>
             <Button
               variant="outline"
@@ -130,7 +130,7 @@ export default function PayoutSettings() {
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
-              Earnings: $4.75/delivery + 100% of tips · Paid every Monday
+              Earnings: $3.00/delivery + 100% of tips · Paid every Monday
             </p>
           </div>
         )}

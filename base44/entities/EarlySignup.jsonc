@@ -61,14 +61,6 @@
       "type": "string",
       "description": "How they heard about us"
     },
-    "referral_code": {
-      "type": "string",
-      "description": "Unique shareable referral code for this signup"
-    },
-    "referred_by_code": {
-      "type": "string",
-      "description": "Referral code of the person who referred this signup"
-    },
     "status": {
       "type": "string",
       "enum": [

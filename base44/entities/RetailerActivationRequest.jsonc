@@ -1,0 +1,86 @@
+{
+  "name": "RetailerActivationRequest",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "contact_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requested_by": {
+      "type": "string"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "consent_version": {
+      "type": "string",
+      "enum": [
+        "activation_request_v1"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "blocked",
+        "activated"
+      ]
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "store_id",
+    "store_name",
+    "contact_emails",
+    "requested_by",
+    "requested_at",
+    "consent_version",
+    "status",
+    "blockers"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.contact_emails": "{{user.email}}"
+        },
+        {
+          "data.requested_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

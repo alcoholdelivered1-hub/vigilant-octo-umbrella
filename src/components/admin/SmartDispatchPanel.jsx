@@ -27,7 +27,7 @@ function rankDrivers(drivers, order, activeOrders) {
   const oLng = order.delivery_longitude || order.order_longitude || PINE_BLUFF.lng;
 
   return drivers
-    .filter(d => d.status === 'available' || d.status === 'on_delivery')
+    .filter(d => (d.status === 'available' || d.status === 'on_delivery') && d.training_completed === true && d.background_check_status === 'clear')
     .map(d => {
       const dLat = d.current_latitude || PINE_BLUFF.lat;
       const dLng = d.current_longitude || PINE_BLUFF.lng;
@@ -79,11 +79,12 @@ function OrderCard({ order, drivers, activeOrders }) {
   useEffect(() => { if (best) setSelected(best.driver.id); }, [best?.driver.id]);
 
   const assignMutation = useMutation({
-    mutationFn: ({ driverId, driverName }) =>
+    mutationFn: ({ driverId, driverEmail, driverName }) =>
       base44.entities.Order.update(order.id, {
         driver_id: driverId,
+        driver_email: driverEmail,
         driver_name: driverName,
-        status: 'confirmed',
+        status: order.status,
       }),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['smart-dispatch-orders'] });
@@ -96,7 +97,7 @@ function OrderCard({ order, drivers, activeOrders }) {
   const handleApprove = () => {
     const candidate = ranked.find(c => c.driver.id === selected) || best;
     if (!candidate) return;
-    assignMutation.mutate({ driverId: candidate.driver.id, driverName: candidate.driver.name });
+    assignMutation.mutate({ driverId: candidate.driver.id, driverEmail: candidate.driver.email, driverName: candidate.driver.name });
   };
 
   const age = order.created_date
@@ -214,7 +215,8 @@ export default function SmartDispatchPanel() {
   }, []);
 
   const unassigned = orders.filter(o =>
-    !o.driver_id && ['pending', 'confirmed', 'preparing', 'pickup_ready'].includes(o.status)
+    !o.driver_id && ['confirmed', 'preparing', 'pickup_ready'].includes(o.status) &&
+    o.stripe_payment_status === 'paid' && o.id_verified_at_checkout === true && o.is_in_legal_zone === true
   );
   const activeOrders = orders.filter(o =>
     ['confirmed', 'preparing', 'pickup_ready', 'in_transit'].includes(o.status)

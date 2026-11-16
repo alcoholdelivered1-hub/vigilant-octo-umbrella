@@ -1,0 +1,40 @@
+{
+  "name": "Order Status Notifications",
+  "description": "Email the customer when preparing, pickup ready, in transit or cancelled. Paid and delivered updates remain with their existing workflows.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ ((.trigger.changed_fields // []) | index(\"status\")) != null and .trigger.old_data.status != .trigger.data.status and (.trigger.data.status == \"preparing\" or .trigger.data.status == \"pickup_ready\" or .trigger.data.status == \"in_transit\" or .trigger.data.status == \"cancelled\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "order_status_notifications",
+      "version": "1.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_customer": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyOrderStatusTransition",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email customer status update",
+            "description": "Preparing, pickup ready, in transit, cancelled"
+          }
+        }
+      }
+    ]
+  }
+}

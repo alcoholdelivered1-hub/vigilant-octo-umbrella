@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 function buildRawEmail(to, subject, htmlBody, senderEmail) {
   const message = [
@@ -17,6 +18,8 @@ function buildRawEmail(to, subject, htmlBody, senderEmail) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
     const payload = await req.json();
 
     const store = payload.data;
@@ -32,8 +35,12 @@ Deno.serve(async (req) => {
       return Response.json({ skipped: true, reason: 'Status did not change to contract_signed' });
     }
 
-    const secretEmail = Deno.env.get('STORE_MANAGER_EMAIL')?.trim();
-    const managerEmail = (secretEmail && secretEmail.includes('@')) ? secretEmail : 'madhouserecords@yahoo.com';
+    const managerEmail = (Deno.env.get('STORE_MANAGER_EMAIL') || '').trim().replace(/^["']|["']$/g, '');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(managerEmail)) {
+      console.error('Invalid STORE_MANAGER_EMAIL:', JSON.stringify(Deno.env.get('STORE_MANAGER_EMAIL')));
+      return Response.json({ error: 'STORE_MANAGER_EMAIL is missing or invalid — set a valid email address in app secrets' }, { status: 500 });
+    }
 
     const subject = `✅ Contract Signed — ${store.name}`;
     const htmlBody = `

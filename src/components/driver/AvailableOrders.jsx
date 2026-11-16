@@ -42,9 +42,13 @@ export default function AvailableOrders({ onAccepted }) {
   const [accepting, setAccepting] = useState(null);
   const prevCountRef = useRef(null);
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['available-orders'],
-    queryFn: () => base44.entities.Order.filter({ status: 'pending' }, '-created_date', 30),
+    queryFn: async () => {
+      const response = await base44.functions.invoke('listAvailableDriverOrders', {});
+      if (!Array.isArray(response.data?.orders)) throw new Error(response.data?.error || 'Available orders could not be loaded.');
+      return response.data.orders;
+    },
     refetchInterval: 15000,
   });
 
@@ -68,11 +72,11 @@ export default function AvailableOrders({ onAccepted }) {
   });
 
   const acceptMutation = useMutation({
-    mutationFn: ({ id, driverData }) => base44.entities.Order.update(id, {
-      status: 'confirmed',
-      driver_id: driverData.id,
-      driver_name: driverData.full_name,
-    }),
+    mutationFn: async ({ id }) => {
+      const response = await base44.functions.invoke('claimOrder', { order_id: id });
+      if (!response.data?.success) throw new Error(response.data?.reason || 'Order could not be claimed.');
+      return response;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['available-orders'] });
       queryClient.invalidateQueries({ queryKey: ['driver-orders'] });
@@ -80,8 +84,8 @@ export default function AvailableOrders({ onAccepted }) {
       setAccepting(null);
       if (onAccepted) onAccepted();
     },
-    onError: () => {
-      toast.error('Failed to accept order. It may have already been taken.');
+    onError: (error) => {
+      toast.error(error?.message || 'Failed to accept order. It may have already been taken.');
       setAccepting(null);
     }
   });
@@ -89,7 +93,7 @@ export default function AvailableOrders({ onAccepted }) {
   const handleAccept = async (order) => {
     if (!user) return;
     setAccepting(order.id);
-    acceptMutation.mutate({ id: order.id, driverData: user });
+    acceptMutation.mutate({ id: order.id });
   };
 
   const mapOrders = orders.filter(o => o.delivery_latitude && o.delivery_longitude);
@@ -108,7 +112,7 @@ export default function AvailableOrders({ onAccepted }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-semibold text-lg">Available Orders</h2>
-          <p className="text-xs text-muted-foreground">{orders.length} pending in your area</p>
+          <p className="text-xs text-muted-foreground">{orders.length} retailer-approved order{orders.length === 1 ? '' : 's'} available</p>
         </div>
         <div className="flex gap-1 bg-muted rounded-lg p-1">
           <button
@@ -126,17 +130,19 @@ export default function AvailableOrders({ onAccepted }) {
         </div>
       </div>
 
-      {orders.length === 0 ? (
+      {isError ? (
+        <div role="alert" className="rounded-xl border p-5 space-y-3"><p className="text-sm text-destructive">{error?.response?.data?.error || error?.message || 'Available orders could not be loaded.'}</p><Button variant="outline" onClick={() => refetch()}>Try again</Button></div>
+      ) : orders.length === 0 ? (
         <div className="text-center py-16">
           <Package className="w-12 h-12 text-muted-foreground/30 mx-auto" />
-          <p className="text-muted-foreground mt-4 font-medium">No pending orders right now</p>
+          <p className="text-muted-foreground mt-4 font-medium">No retailer-approved orders right now</p>
           <p className="text-xs text-muted-foreground mt-1">Check back soon — new orders refresh every 15 seconds</p>
         </div>
       ) : viewMode === 'map' ? (
         <div className="rounded-xl overflow-hidden border h-96">
           <MapContainer center={PINE_BLUFF} zoom={12} style={{ width: '100%', height: '100%' }}>
             <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               attribution='&copy; OpenStreetMap contributors'
             />
             {mapOrders.map(order => (
@@ -172,7 +178,7 @@ export default function AvailableOrders({ onAccepted }) {
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-lg">${order.total?.toFixed(2)}</span>
-                  <p className="text-xs text-muted-foreground">+ $4.75 delivery fee</p>
+                  <p className="text-xs text-muted-foreground">+ $3 delivery fee</p>
                 </div>
               </div>
 
@@ -187,7 +193,7 @@ export default function AvailableOrders({ onAccepted }) {
                     ${(3 + (order.tip || 0)).toFixed(2)}
                   </span>
                   <p className="text-xs text-emerald-600">
-                    $4.75 fee{order.tip > 0 ? ` + $${order.tip.toFixed(2)} tip` : ' + any tip'}
+                    $3.00 fee{order.tip > 0 ? ` + $${order.tip.toFixed(2)} tip` : ' + any tip'}
                   </p>
                 </div>
               </div>

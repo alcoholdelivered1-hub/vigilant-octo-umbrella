@@ -1,0 +1,41 @@
+{
+  "name": "Email Retailer On Document Review",
+  "description": "Sends a business Gmail update to saved retailer contacts when an uploaded onboarding document is approved or requires correction. Includes review feedback and the secure setup link.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "StoreSetupDocument",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.data.status == \"approved\" or .trigger.data.status == \"needs_correction\") and .trigger.data.reviewed_at != null and (.trigger.old_data.status != .trigger.data.status or .trigger.old_data.reviewed_at != .trigger.data.reviewed_at) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "email_retailer_on_document_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "email_review_decision": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerReview",
+            "args": {
+              "entity": "StoreSetupDocument",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email document review decision",
+            "description": "Business Gmail, saved retailer contacts"
+          }
+        }
+      }
+    ]
+  }
+}

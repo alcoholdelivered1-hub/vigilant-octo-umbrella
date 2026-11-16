@@ -1,0 +1,43 @@
+{
+  "name": "Wix Form & Order Alerts",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "wix_form_order_alerts",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "handle_event": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "handleWixEvent",
+            "args": {
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Handle Wix event",
+            "description": "Routes form submissions and orders"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Listens for new Wix form submissions and eCommerce orders on the connected site and routes them to the handler function.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "connector",
+      "events": [
+        "wix.forms.v4.submission_created",
+        "wix.ecom.v1.order_created",
+        "wix.ecom.v1.order_updated"
+      ],
+      "integration_type": "wix",
+      "resource_id": null
+    }
+  }
+}

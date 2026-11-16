@@ -1,0 +1,42 @@
+{
+  "name": "Priority Driver Delivery Alerts",
+  "description": "Notify the actual assigned driver and retailer after priority-store assignment, and notify that driver when pickup is ready. No hardcoded driver and no status auto-completion.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.data.store_id == \"6a32d14d09b760f592dbf19e\" or .trigger.data.store_id == \"6abbd1a16dc8d922f3b73caf\") and .trigger.data.order_number != \"SS-MS7OHVYB\" and (.trigger.data.driver_id // \"\") != \"\" and (.trigger.data.driver_name // \"\") != \"\" and ((.trigger.old_data.driver_name != .trigger.data.driver_name or .trigger.old_data.driver_id != .trigger.data.driver_id) or (.trigger.data.status == \"pickup_ready\" and .trigger.old_data.status != \"pickup_ready\")) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "priority_driver_delivery_alerts",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_assigned_driver": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyDriverAssignment",
+            "args": {
+              "order_id": "${ .trigger.entity_id }",
+              "expected_driver_id": "${ .trigger.data.driver_id }",
+              "action": "${ if (.trigger.old_data.driver_name != .trigger.data.driver_name or .trigger.old_data.driver_id != .trigger.data.driver_id) then \"assignment\" else \"pickup_ready\" end }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Notify assigned delivery driver",
+            "description": "Assignment and pickup-ready emails"
+          }
+        }
+      }
+    ]
+  }
+}

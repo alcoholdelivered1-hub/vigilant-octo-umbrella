@@ -1,0 +1,44 @@
+{
+  "name": "Weekly Re-engage Stalled Retailers",
+  "description": "Every Monday at 11am Central, re-sends the full onboarding email to retailers who received their initial invitation 14+ days ago but still haven't signed their agreement or made progress. Resets the reminder cycle so 48-hour and 3-day follow-ups restart. Skips stores already contacted within 14 days and stores that already submitted their contract.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 11 * * 1",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "weekly_reengage_stalled_retailers",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "reengage_stalled": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "reengageStalledRetailers"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Re-engage stalled retailers",
+            "description": "Re-sends onboarding email to retailers 14+ days with no progress"
+          }
+        }
+      }
+    ]
+  }
+}

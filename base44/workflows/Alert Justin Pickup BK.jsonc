@@ -1,0 +1,40 @@
+{
+  "name": "Alert Justin Pickup \u2014 Beverage King",
+  "description": "Preserve the separately reconciled legacy Richard order's Justin pickup flow. Other priority orders use automated qualified-driver assignment and pickup alerts.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"pickup_ready\" and .trigger.old_data.status != \"pickup_ready\" and .trigger.data.store_id == \"6a32d14d09b760f592dbf19e\" and .trigger.data.order_number == \"SS-MS7OHVYB\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "alert_justin_pickup_bk",
+      "version": "1.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "alert_justin": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "alertJustinPickup",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Alert Justin for legacy pickup",
+            "description": "Separate reconciliation flow only"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 // Awards 1 loyalty point per $1 spent when an order is delivered
 Deno.serve(async (req) => {
@@ -6,16 +7,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const base44 = createClientFromRequest(req);
 
-    // Auth: must be authenticated via platform (admin user or automation)
-    const authenticated = await base44.auth.isAuthenticated().catch(() => false);
-    if (!authenticated) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    // If a user is present, they must be an admin (automations have no user)
-    const currentUser = await base44.auth.me().catch(() => null);
-    if (currentUser && currentUser.role !== 'admin') {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const order = body.data;
     if (!order || order.status !== 'delivered') {

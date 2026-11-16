@@ -1,41 +1,22 @@
-/**
- * Bulk inventory upload for a SINGLE store (admin-only).
- *
- * Accepts either:
- *   - multipart/form-data:  file (CSV/XLSX) + store_id   (used by the Store Inventory Upload page)
- *   - application/json:     { store_id, rows: [...] }     (used for testing / programmatic calls)
- *
- * Behavior:
- *   - Validates every row; invalid rows are skipped and reported (never throw the whole batch).
- *   - Dedup key = `${store_id}|${sku}` when an SKU/UPC is present, otherwise falls back to
- *     `${store_id}|name|brand|pack_size`. This makes re-runs idempotent: a timeout mid-upload
- *     can be safely resumed by re-submitting the same file — already-created rows are updated,
- *     not duplicated.
- *   - Hard-scoped to the supplied store_id: existing products are fetched ONLY for that store,
- *     and every created/updated record is pinned to it. A row whose own store_id column
- *     disagrees with the forced store_id is rejected, so one store can never touch another's catalog.
- *   - Writes in batches of 500 via bulkCreate / bulkUpdate, with per-batch retry (3 attempts).
- */
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import * as XLSX from 'npm:xlsx@0.18.5';
+import { retailerInventoryUpload } from '../../shared/retailerInventoryUpload.ts';
 
 const CATEGORY_MAP = {
   'vodka': 'spirits', 'whiskey': 'spirits', 'bourbon': 'spirits', 'cognac': 'spirits',
   'brandy': 'spirits', 'tequila': 'spirits', 'rum': 'spirits', 'liqueur': 'spirits',
-  'gin': 'spirits', 'spirit': 'spirits', 'spirits': 'spirits', 'scotch': 'spirits', 'schnapps': 'spirits',
-  'beer': 'beer', 'cider': 'beer', 'seltzer': 'beer', 'rtd': 'beer', 'malt': 'beer', 'ale': 'beer', 'lager': 'beer',
+  'gin': 'spirits', 'spirit': 'spirits', 'spirits': 'spirits',
+  'beer': 'beer', 'cider': 'beer', 'seltzer': 'beer', 'rtd': 'beer', 'malt': 'beer',
   'wine': 'wine', 'sparkling': 'wine', 'champagne': 'wine', 'rose': 'wine',
-  'mixer': 'mixers', 'mixers': 'mixers', 'soda': 'mixers', 'tonic': 'mixers', 'juice': 'mixers',
-  'accessory': 'accessories', 'accessories': 'accessories', 'supplies': 'accessories',
+  'mixer': 'mixers', 'mixers': 'mixers', 'soda': 'mixers',
+  'accessory': 'accessories', 'accessories': 'accessories',
 };
-
-const BATCH_SIZE = 500;
-const MAX_RETRIES = 3;
 
 function parseCSV(text) {
   const lines = text.trim().split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+
   return lines.slice(1).map(line => {
     const values = [];
     let current = '';
@@ -49,7 +30,7 @@ function parseCSV(text) {
     const obj = {};
     headers.forEach((h, i) => { obj[h] = (values[i] || '').replace(/^"|"$/g, ''); });
     return obj;
-  });
+  }).filter(row => row.store_id || row.store_name || row.product_name);
 }
 
 function parseXLSX(arrayBuffer) {
@@ -63,253 +44,227 @@ function parseXLSX(arrayBuffer) {
       normalized[normalizedKey] = String(value ?? '').trim();
     }
     return normalized;
-  });
+  }).filter(row => row.store_id || row.store_name || row.product_name);
 }
 
-function normalizeRow(row) {
-  const name = (row.product_name || row.name || '').trim();
-  const sku = (row.sku || row.upc || row.barcode || '').trim();
-  const category = CATEGORY_MAP[(row.category || '').toLowerCase()] || 'spirits';
-  const price = parseFloat(row.price || row.avg_price);
-  const brand = (row.brand || '').trim();
-  const packSize = (row.pack_size || 'Single').trim();
-  const volume = (row.volume || row.size || '').trim();
-  const abv = row.abv ? parseFloat(row.abv) : null;
-  const stockQtyRaw = row.stock_quantity;
-  const stockQty = stockQtyRaw !== '' && stockQtyRaw !== undefined ? parseInt(stockQtyRaw, 10) : null;
-  const inStock = row.in_stock !== '' && row.in_stock !== undefined
-    ? !['false', '0', 'no', 'out'].includes(row.in_stock.toString().toLowerCase())
-    : (stockQty === null ? true : stockQty > 0);
-  return { name, sku, category, price, brand, packSize, volume, abv, stockQty, inStock };
-}
+async function extractCSVFromZip(arrayBuffer) {
+  // Simple ZIP parser — reads first .csv file found
+  const bytes = new Uint8Array(arrayBuffer);
+  const decoder = new TextDecoder('utf-8');
+  const csvFiles = [];
 
-function dedupKey(storeId, p) {
-  if (p.sku) return `sku|${storeId}|${p.sku}`;
-  return `name|${storeId}|${p.name.toLowerCase()}|${p.brand.toLowerCase()}|${p.packSize.toLowerCase()}`;
-}
+  let i = 0;
+  while (i < bytes.length - 4) {
+    // Local file header signature: 0x04034b50
+    if (bytes[i] === 0x50 && bytes[i+1] === 0x4b && bytes[i+2] === 0x03 && bytes[i+3] === 0x04) {
+      const compression = bytes[i+8] | (bytes[i+9] << 8);
+      const compressedSize = bytes[i+18] | (bytes[i+19] << 8) | (bytes[i+20] << 16) | (bytes[i+21] << 24);
+      const filenameLen = bytes[i+26] | (bytes[i+27] << 8);
+      const extraLen = bytes[i+28] | (bytes[i+29] << 8);
+      const filename = decoder.decode(bytes.slice(i+30, i+30+filenameLen));
+      const dataStart = i + 30 + filenameLen + extraLen;
 
-// Retry a bulk operation up to MAX_RETRIES times. Returns count of failed batches.
-async function bulkWithRetry(fn, items, label, batchErrors) {
-  let failed = 0;
-  for (let i = 0; i < items.length; i += BATCH_SIZE) {
-    const slice = items.slice(i, i + BATCH_SIZE);
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-    let attempt = 0;
-    let ok = false;
-    while (attempt < MAX_RETRIES) {
-      try {
-        await fn(slice);
-        ok = true;
-        break;
-      } catch (e) {
-        attempt++;
-        console.error(`[inventory-upload] ${label} batch ${batchNum} attempt ${attempt} failed: ${e.message}`);
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, 1000 * attempt));
-        } else {
-          batchErrors.push(`${label} batch ${batchNum} (${slice.length} items): ${e.message}`);
-          failed++;
-        }
+      if (filename.toLowerCase().endsWith('.csv') && compression === 0) {
+        const fileData = bytes.slice(dataStart, dataStart + compressedSize);
+        csvFiles.push({ filename, text: decoder.decode(fileData) });
       }
+      i = dataStart + compressedSize;
+    } else {
+      i++;
     }
-    void ok;
   }
-  return failed;
+  return csvFiles;
 }
 
 export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
+    if (user && req.headers.get('content-type')?.includes('application/json')) {
+      if (req.method !== 'POST') return Response.json({ error:'Method not allowed' },{ status:405 });
+      return Response.json(await retailerInventoryUpload(base44,user,await req.json()));
+    }
     if (!user || user.role !== 'admin') {
       return Response.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    let rows = [];
-    let forcedStoreId = null;
+    if (!req.headers.get('content-type')?.includes('multipart/form-data')) return Response.json({ error: 'Upload a CSV or Excel file using the inventory form.' }, { status: 400 });
+    const formData = await req.formData();
+    const file = formData.get('file');
+    if (!file) {
+      return Response.json({ error: 'No file uploaded' }, { status: 400 });
+    }
 
-    const contentType = req.headers.get('content-type') || '';
+    // Optional: force all rows into a specific store (single-store upload mode)
+    const forcedStoreId = formData.get('store_id') || null;
+    if (file.size > 50 * 1024 * 1024) return Response.json({ error: 'File must be under 50 MB.' }, { status: 400 });
+    if (forcedStoreId) {
+      const targetStore = await base44.asServiceRole.entities.Store.get(String(forcedStoreId));
+      if (!targetStore) return Response.json({ error: 'Store not found.' }, { status: 404 });
+      if (targetStore.id === '6a3bed91eb84bc989a04e479') return Response.json({ error: 'Colonial uses authorized POS pricing and stock. Submit its POS export in retailer setup for review before connecting the authoritative feed.' }, { status: 409 });
+    }
 
-    if (contentType.includes('multipart/form-data')) {
-      const formData = await req.formData();
-      const file = formData.get('file');
-      forcedStoreId = (formData.get('store_id') || '').toString();
-      if (!file) return Response.json({ error: 'No file uploaded' }, { status: 400 });
+    const filename = file.name.toLowerCase();
+    const arrayBuffer = await file.arrayBuffer();
+    let allRows = [];
 
-      const filename = file.name.toLowerCase();
-      const arrayBuffer = await file.arrayBuffer();
-      if (filename.endsWith('.csv')) {
-        rows = parseCSV(new TextDecoder('utf-8').decode(arrayBuffer));
-      } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
-        rows = parseXLSX(arrayBuffer);
-      } else {
-        return Response.json({ error: 'Only .csv and .xlsx files are supported' }, { status: 400 });
+    if (filename.endsWith('.zip')) {
+      const csvFiles = await extractCSVFromZip(arrayBuffer);
+      if (!csvFiles.length) {
+        return Response.json({ error: 'No CSV files found inside the ZIP' }, { status: 400 });
       }
-    } else if (contentType.includes('application/json')) {
-      const body = await req.json();
-      rows = Array.isArray(body.rows) ? body.rows : [];
-      forcedStoreId = body.store_id || '';
+      allRows = csvFiles.flatMap(f => parseCSV(f.text));
+    } else if (filename.endsWith('.csv')) {
+      const csvText = new TextDecoder('utf-8').decode(arrayBuffer);
+      allRows = parseCSV(csvText);
+    } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+      allRows = parseXLSX(arrayBuffer);
     } else {
-      return Response.json({ error: 'Unsupported content type' }, { status: 400 });
+      return Response.json({ error: 'Only .csv, .xlsx, and .zip files are supported' }, { status: 400 });
+    }
+    console.log(`Parsed ${allRows.length} total rows`);
+
+    // Group rows by store
+    const storeMap = {};
+    for (const row of allRows) {
+      const storeKey = forcedStoreId || row.store_id || row.store_name;
+      if (!storeKey) continue;
+      if (!storeMap[storeKey]) storeMap[storeKey] = { info: row, products: [] };
+      if (row.product_name) storeMap[storeKey].products.push(row);
     }
 
-    if (!forcedStoreId) {
-      return Response.json({ error: 'store_id is required (single-store scoping)' }, { status: 400 });
-    }
-    if (rows.length === 0) {
-      return Response.json({ error: 'No product rows found in upload' }, { status: 400 });
+    // Load existing stores and products
+    const [existingStores, existingProducts] = await Promise.all([
+      base44.asServiceRole.entities.Store.list('name', 500),
+      base44.asServiceRole.entities.Product.list('name', 5000),
+    ]);
+
+    const storeByLicense = {};
+    const storeByName = {};
+    for (const s of existingStores) {
+      if (s.license_number) storeByLicense[s.license_number] = s;
+      storeByName[s.name?.toLowerCase()] = s;
     }
 
-    console.log(`[inventory-upload] store=${forcedStoreId} rows=${rows.length}`);
-
-    // Verify the store exists (and is active) before touching its catalog.
-    let store;
-    try {
-      store = await base44.asServiceRole.entities.Store.get(forcedStoreId);
-    } catch (e) {
-      return Response.json({ error: `Store not found: ${forcedStoreId}` }, { status: 404 });
-    }
-    if (store.is_active === false) {
-      return Response.json({ error: `Store "${store.name}" is inactive` }, { status: 400 });
-    }
-
-    // Fetch ALL existing products scoped to this store only (paginate, supports 11k+).
-    const existingProducts = [];
-    let skip = 0;
-    while (true) {
-      const batch = await base44.asServiceRole.entities.Product.filter(
-        { store_id: forcedStoreId }, 'name', 500, skip
-      );
-      existingProducts.push(...batch);
-      if (batch.length < 500) break;
-      skip += 500;
-      if (skip > 30000) break; // hard safety cap
-    }
-    console.log(`[inventory-upload] loaded ${existingProducts.length} existing products for store`);
-
-    // Build dedup maps: sku key is primary, name-key is legacy fallback.
-    const productBySku = {};
-    const productByNameKey = {};
+    const productByKey = {};
     for (const p of existingProducts) {
-      if (p.sku) productBySku[`${forcedStoreId}|${p.sku}`] = p;
-      const nk = `name|${forcedStoreId}|${(p.name || '').toLowerCase()}|${(p.brand || '').toLowerCase()}|${(p.pack_size || 'Single').toLowerCase()}`;
-      if (!productByNameKey[nk]) productByNameKey[nk] = p;
+      const key = `${p.store_id}|${(p.name || '').toLowerCase()}|${(p.brand || '').toLowerCase()}`;
+      productByKey[key] = p;
     }
 
-    const validationErrors = [];
-    const creates = [];
-    const updates = [];
-    const seenInFile = new Set();
-    let skippedUnchanged = 0;
+    let storesCreated = 0, storesUpdated = 0;
+    let productsCreated = 0, productsUpdated = 0, productsSkipped = 0;
+    const errors = [];
 
-    rows.forEach((rawRow, i) => {
-      const rowNo = i + 2; // +1 header, +1 1-based
-      const rowStoreId = (rawRow.store_id || '').toString().trim();
-
-      // Cross-store guard: if the row declares its own store_id, it must match the forced store.
-      if (rowStoreId && rowStoreId !== forcedStoreId) {
-        validationErrors.push(`Row ${rowNo}: store_id "${rowStoreId}" does not match target store — skipped`);
-        return;
-      }
-
-      const p = normalizeRow(rawRow);
-
-      if (!p.name) {
-        validationErrors.push(`Row ${rowNo}: missing product_name — skipped`);
-        return;
-      }
-      if (!p.price || isNaN(p.price) || p.price <= 0) {
-        validationErrors.push(`Row ${rowNo}: invalid price for "${p.name}" — skipped`);
-        return;
-      }
-      if (p.abv !== null && (isNaN(p.abv) || p.abv < 0 || p.abv > 100)) {
-        validationErrors.push(`Row ${rowNo}: invalid abv for "${p.name}" — skipped`);
-        return;
-      }
-
-      const key = dedupKey(forcedStoreId, p);
-      if (seenInFile.has(key)) {
-        validationErrors.push(`Row ${rowNo}: duplicate within file ("${p.name}") — skipped`);
-        return;
-      }
-      seenInFile.add(key);
-
-      const existing = p.sku
-        ? (productBySku[`${forcedStoreId}|${p.sku}`] || productByNameKey[`name|${forcedStoreId}|${p.name.toLowerCase()}|${p.brand.toLowerCase()}|${p.packSize.toLowerCase()}`])
-        : productByNameKey[`name|${forcedStoreId}|${p.name.toLowerCase()}|${p.brand.toLowerCase()}|${p.packSize.toLowerCase()}`];
-
-      if (existing) {
-        const changes = { id: existing.id };
-        if (existing.price !== p.price) changes.price = p.price;
-        if (p.sku && existing.sku !== p.sku) changes.sku = p.sku;
-        if (existing.pack_size !== p.packSize) changes.pack_size = p.packSize;
-        if (p.volume && existing.volume !== p.volume) changes.volume = p.volume;
-        if (p.abv !== null && existing.abv !== p.abv) changes.abv = p.abv;
-        if (p.stockQty !== null && existing.stock_quantity !== p.stockQty) changes.stock_quantity = p.stockQty;
-        if (existing.in_stock !== p.inStock) changes.in_stock = p.inStock;
-        if (p.brand && existing.brand !== p.brand) changes.brand = p.brand;
-        if (Object.keys(changes).length > 1) {
-          updates.push(changes);
+    for (const [storeKey, { info, products }] of Object.entries(storeMap)) {
+      let storeId;
+      try {
+        // If a specific store was forced (single-store upload mode), skip store create/update
+        if (forcedStoreId) {
+          storeId = forcedStoreId;
+          storesUpdated++;
         } else {
-          skippedUnchanged++;
+          // Find or create store
+          const existingStore = storeByLicense[info.license_number] || storeByName[info.store_name?.toLowerCase()];
+
+          const storeData = {
+            name: info.store_name || storeKey,
+            ...(info.license_number && { license_number: info.license_number }),
+            ...(info.address && { address: info.address }),
+            ...(info.city && { city: info.city }),
+            ...(info.county && { county: info.county }),
+            state: info.state || 'AR',
+            ...(info.zip_code && { zip_code: info.zip_code }),
+            ...(info.phone && { phone: info.phone }),
+            ...(info.email && { email: info.email }),
+            ...(info.latitude && { latitude: parseFloat(info.latitude) }),
+            ...(info.longitude && { longitude: parseFloat(info.longitude) }),
+            ...(info.operating_hours_start && { operating_hours_start: info.operating_hours_start }),
+            ...(info.operating_hours_end && { operating_hours_end: info.operating_hours_end }),
+            is_active: true,
+          };
+
+          if (existingStore) {
+            await base44.asServiceRole.entities.Store.update(existingStore.id, storeData);
+            storeId = existingStore.id;
+            storesUpdated++;
+          } else {
+            const created = await base44.asServiceRole.entities.Store.create(storeData);
+            storeId = created.id;
+            storesCreated++;
+          }
         }
-      } else {
-        const newProduct = {
-          name: p.name,
-          ...(p.sku && { sku: p.sku }),
-          brand: p.brand,
-          category: p.category,
-          price: p.price,
-          pack_size: p.packSize,
-          store_id: forcedStoreId,
-          in_stock: p.inStock,
-          ...(p.volume && { volume: p.volume }),
-          ...(p.abv !== null && { abv: p.abv }),
-          ...(p.stockQty !== null && { stock_quantity: p.stockQty }),
-        };
-        creates.push(newProduct);
+      } catch (e) {
+        errors.push(`Store "${storeKey}": ${e.message}`);
+        continue;
       }
-    });
 
-    console.log(`[inventory-upload] creates=${creates.length} updates=${updates.length} unchanged=${skippedUnchanged} invalid=${validationErrors.length}`);
+      if (storeId === '6a3bed91eb84bc989a04e479') {
+        errors.push('Colonial inventory is POS-authoritative; spreadsheet updates were not applied.');
+        productsSkipped += products.length;
+        continue;
+      }
+      // Sync products for this store
+      for (const row of products) {
+        try {
+          const category = CATEGORY_MAP[row.category?.toLowerCase()] || 'spirits';
+          const price = parseFloat(row.price || row.avg_price) || 0;
+          const stockQty = row.stock_quantity !== '' && row.stock_quantity !== undefined ? parseInt(row.stock_quantity, 10) : null;
+          const inStock = row.in_stock !== '' && row.in_stock !== undefined
+            ? !['false', '0', 'no', 'out'].includes(row.in_stock.toLowerCase())
+            : (stockQty === null ? true : stockQty > 0);
 
-    const batchErrors = [];
-    const failedCreateBatches = await bulkWithRetry(
-      (slice) => base44.asServiceRole.entities.Product.bulkCreate(slice),
-      creates, 'create', batchErrors
-    );
-    const failedUpdateBatches = await bulkWithRetry(
-      (slice) => base44.asServiceRole.entities.Product.bulkUpdate(slice),
-      updates, 'update', batchErrors
-    );
+          const key = `${storeId}|${row.product_name.toLowerCase()}|${(row.brand || '').toLowerCase()}`;
 
-    const createdCount = creates.length - (failedCreateBatches * BATCH_SIZE);
-    const updatedCount = updates.length - (failedUpdateBatches * BATCH_SIZE);
+          if (productByKey[key]) {
+            const existing = productByKey[key];
+            if (existing.inventory_source === 'clover') { productsSkipped++; continue; }
+            const changes = { inventory_source: 'csv', last_synced_at: new Date().toISOString() };
+            if (existing.price !== price) changes.price = price;
+            if (stockQty !== null && existing.stock_quantity !== stockQty) changes.stock_quantity = stockQty;
+            if (existing.in_stock !== inStock) changes.in_stock = inStock;
+            if (row.volume && existing.volume !== row.volume) changes.volume = row.volume;
+            if (Object.keys(changes).length > 0) {
+              await base44.asServiceRole.entities.Product.update(existing.id, changes);
+              productsUpdated++;
+            } else {
+              productsSkipped++;
+            }
+          } else {
+            const newProduct = {
+              name: row.product_name,
+              brand: row.brand || '',
+              category,
+              price,
+              store_id: storeId,
+              in_stock: inStock,
+              ...(row.volume && { volume: row.volume }),
+              ...(row.abv && { abv: parseFloat(row.abv) }),
+              ...(stockQty !== null && { stock_quantity: stockQty }),
+            };
+            newProduct.inventory_source = 'csv';
+            newProduct.last_synced_at = new Date().toISOString();
+            const createdProduct = await base44.asServiceRole.entities.Product.create(newProduct);
+            productByKey[key] = createdProduct;
+            productsCreated++;
+          }
+        } catch (e) {
+          errors.push(`Product "${row.product_name}" in store "${storeKey}": ${e.message}`);
+        }
+      }
+    }
 
     const summary = {
-      total_rows: rows.length,
-      store: { id: forcedStoreId, name: store.name },
-      products: {
-        created: Math.max(0, createdCount),
-        updated: Math.max(0, updatedCount),
-        unchanged: skippedUnchanged,
-        invalid: validationErrors.length,
-      },
-      batches: {
-        size: BATCH_SIZE,
-        create_batches: Math.ceil(creates.length / BATCH_SIZE),
-        update_batches: Math.ceil(updates.length / BATCH_SIZE),
-        failed: failedCreateBatches + failedUpdateBatches,
-        retried_ok: (failedCreateBatches + failedUpdateBatches) === 0,
-      },
-      resume_safe: true,
-      errors: validationErrors.slice(0, 50),
-      batch_errors: batchErrors,
+      stores: { created: storesCreated, updated: storesUpdated },
+      products: { created: productsCreated, updated: productsUpdated, skipped: productsSkipped },
+      errors: errors.slice(0, 20), // cap error list
+      total_rows: allRows.length,
     };
-    console.log(`[inventory-upload] complete: ${JSON.stringify({ created: summary.products.created, updated: summary.products.updated, invalid: summary.products.invalid })}`);
+    console.log('Sync complete:', JSON.stringify(summary));
     return Response.json({ success: true, summary });
+
   } catch (error) {
-    console.error('[inventory-upload] fatal:', error.message, error.stack);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('Upload sync error:', error.message);
+    return Response.json({ error: error.message }, { status: error.status || 500 });
   }
 }

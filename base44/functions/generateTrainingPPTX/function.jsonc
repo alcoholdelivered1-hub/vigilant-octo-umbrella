@@ -1,0 +1,4 @@
+{
+  "name": "generateTrainingPPTX",
+  "entry": "entry.ts"
+}

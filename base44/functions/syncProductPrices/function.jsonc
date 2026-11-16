@@ -1,0 +1,4 @@
+{
+  "name": "syncProductPrices",
+  "entry": "entry.ts"
+}

@@ -10,10 +10,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Use only server-verified data from the authenticated user's profile
-    const recipientName = user.full_name || user.email;
-    const completionDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const modules = [
+    const body = await req.json().catch(() => ({}));
+    const isAdmin = user.role === 'admin';
+    // Only an administrator may issue a certificate naming another person or back-dating completion.
+    const recipientName = (isAdmin && body.name) || user.full_name || user.email;
+    const completionDate = (isAdmin && body.date)
+      ? body.date
+      : new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const modules = (isAdmin && Array.isArray(body.modules) && body.modules.length > 0) ? body.modules : [
       'Arkansas Alcohol Laws',
       'Responsible Consumption',
       'ID Verification & Your Rights',
@@ -25,125 +29,120 @@ Deno.serve(async (req) => {
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
 
-    // Colors
-    const NAVY = [13, 27, 77];
-    const GOLD = [212, 160, 23];
-    const GRAY = [100, 116, 139];
-
-    // Plain white background
-    doc.setFillColor(255, 255, 255);
+    // Background
+    doc.setFillColor(13, 27, 77); // deep navy
     doc.rect(0, 0, W, H, 'F');
 
-    // Navy border (outer + inner)
-    doc.setDrawColor(...NAVY);
-    doc.setLineWidth(3);
+    // Gold border
+    doc.setDrawColor(212, 160, 23);
+    doc.setLineWidth(4);
     doc.rect(20, 20, W - 40, H - 40, 'S');
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(1.5);
     doc.rect(28, 28, W - 56, H - 56, 'S');
 
-    // Gold accent line between borders
-    doc.setDrawColor(...GOLD);
-    doc.setLineWidth(0.6);
-    doc.rect(24, 24, W - 48, H - 48, 'S');
+    // Corner ornaments
+    const corners = [[30, 30], [W - 30, 30], [30, H - 30], [W - 30, H - 30]];
+    corners.forEach(([x, y]) => {
+      doc.setFillColor(212, 160, 23);
+      doc.circle(x, y, 5, 'F');
+    });
 
     // Header badge area
-    doc.setFillColor(...NAVY);
-    doc.roundedRect(W / 2 - 130, 44, 260, 32, 6, 6, 'F');
-    doc.setTextColor(...GOLD);
-    doc.setFontSize(12);
+    doc.setFillColor(212, 160, 23);
+    doc.roundedRect(W / 2 - 120, 40, 240, 36, 6, 6, 'F');
+    doc.setTextColor(13, 27, 77);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text('ALCOHOL DELIVERED, LLC', W / 2, 64, { align: 'center' });
+    doc.text('ALCOHOL DELIVERED, LLC', W / 2, 63, { align: 'center' });
 
     // Title
-    doc.setTextColor(...NAVY);
-    doc.setFontSize(32);
+    doc.setTextColor(212, 160, 23);
+    doc.setFontSize(34);
     doc.setFont('helvetica', 'bold');
-    doc.text('CERTIFICATE OF COMPLETION', W / 2, 118, { align: 'center' });
+    doc.text('CERTIFICATE OF COMPLETION', W / 2, 120, { align: 'center' });
 
     // Subtitle
-    doc.setTextColor(...GRAY);
-    doc.setFontSize(13);
+    doc.setTextColor(180, 200, 255);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
-    doc.text('Arkansas ACT 157 — Alcohol Delivery Driver Training Program', W / 2, 144, { align: 'center' });
+    doc.text('Arkansas ACT 157 — Alcohol Delivery Driver Training Program', W / 2, 148, { align: 'center' });
 
     // Divider
-    doc.setDrawColor(...GOLD);
-    doc.setLineWidth(0.8);
-    doc.line(80, 158, W - 80, 158);
+    doc.setDrawColor(212, 160, 23);
+    doc.setLineWidth(1);
+    doc.line(80, 162, W - 80, 162);
 
     // "This certifies that"
-    doc.setTextColor(...GRAY);
-    doc.setFontSize(12);
+    doc.setTextColor(200, 215, 255);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'italic');
-    doc.text('This certifies that', W / 2, 184, { align: 'center' });
+    doc.text('This certifies that', W / 2, 190, { align: 'center' });
 
     // Recipient Name
-    doc.setTextColor(...NAVY);
-    doc.setFontSize(30);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(32);
     doc.setFont('helvetica', 'bold');
-    doc.text(recipientName, W / 2, 222, { align: 'center' });
+    doc.text(recipientName, W / 2, 228, { align: 'center' });
 
     // Name underline
     const nameWidth = doc.getTextWidth(recipientName);
-    doc.setDrawColor(...GOLD);
-    doc.setLineWidth(1);
-    doc.line(W / 2 - nameWidth / 2, 228, W / 2 + nameWidth / 2, 228);
+    doc.setDrawColor(212, 160, 23);
+    doc.setLineWidth(1.2);
+    doc.line(W / 2 - nameWidth / 2, 234, W / 2 + nameWidth / 2, 234);
 
     // Body text
-    doc.setTextColor(...GRAY);
+    doc.setTextColor(200, 215, 255);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.text(
       'has successfully completed the required Alcohol Delivery Safety Training Program',
-      W / 2, 252, { align: 'center' }
+      W / 2, 258, { align: 'center' }
     );
     doc.text(
       'as mandated under Arkansas ACT 157 (A.C.A. §3-4-1106) for third-party alcohol delivery drivers.',
-      W / 2, 268, { align: 'center' }
+      W / 2, 274, { align: 'center' }
     );
 
     // Modules completed
-    doc.setTextColor(...NAVY);
-    doc.setFontSize(10);
+    doc.setTextColor(212, 160, 23);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text('MODULES COMPLETED:', W / 2, 294, { align: 'center' });
+    doc.text('MODULES COMPLETED:', W / 2, 300, { align: 'center' });
 
-    doc.setTextColor(...GRAY);
+    doc.setTextColor(180, 200, 255);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
+    doc.setFontSize(10);
     const moduleLine = modules.join('  ·  ');
-    doc.text(moduleLine, W / 2, 310, { align: 'center', maxWidth: W - 160 });
+    doc.text(moduleLine, W / 2, 316, { align: 'center', maxWidth: W - 160 });
 
     // Divider
-    doc.setDrawColor(...GOLD);
-    doc.setLineWidth(0.6);
-    doc.line(80, 330, W - 80, 330);
+    doc.setDrawColor(212, 160, 23);
+    doc.setLineWidth(0.8);
+    doc.line(80, 336, W - 80, 336);
 
     // Footer columns
     const col1 = 130, col2 = W / 2, col3 = W - 130;
-    const sigY = 384;
+    const sigY = 390;
 
     // Date
-    doc.setTextColor(...NAVY);
-    doc.setFontSize(12);
+    doc.setTextColor(212, 160, 23);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.text(completionDate, col1, sigY, { align: 'center' });
-    doc.setDrawColor(...GRAY);
-    doc.setLineWidth(0.6);
+    doc.setDrawColor(180, 200, 255);
+    doc.setLineWidth(0.8);
     doc.line(col1 - 80, sigY + 6, col1 + 80, sigY + 6);
-    doc.setTextColor(...GRAY);
-    doc.setFontSize(8);
+    doc.setTextColor(180, 200, 255);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text('Date of Completion', col1, sigY + 18, { align: 'center' });
 
     // Seal/stamp center
-    doc.setDrawColor(...GOLD);
-    doc.setLineWidth(1.5);
-    doc.circle(col2, sigY - 10, 30, 'S');
-    doc.setDrawColor(...NAVY);
-    doc.setLineWidth(0.8);
-    doc.circle(col2, sigY - 10, 26, 'S');
-    doc.setTextColor(...NAVY);
+    doc.setFillColor(212, 160, 23);
+    doc.circle(col2, sigY - 10, 32, 'S');
+    doc.setFillColor(13, 27, 77);
+    doc.circle(col2, sigY - 10, 28, 'F');
+    doc.setTextColor(212, 160, 23);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text('OFFICIAL', col2, sigY - 14, { align: 'center' });
@@ -152,37 +151,35 @@ Deno.serve(async (req) => {
     doc.text('AR ABC', col2, sigY + 6, { align: 'center' });
 
     // Authority
-    doc.setTextColor(...NAVY);
-    doc.setFontSize(12);
+    doc.setTextColor(212, 160, 23);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.text('Alcohol Delivered, LLC', col3, sigY, { align: 'center' });
-    doc.setDrawColor(...GRAY);
+    doc.setDrawColor(180, 200, 255);
     doc.line(col3 - 90, sigY + 6, col3 + 90, sigY + 6);
-    doc.setTextColor(...GRAY);
-    doc.setFontSize(8);
+    doc.setTextColor(180, 200, 255);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text('Issuing Authority · Pine Bluff, AR', col3, sigY + 18, { align: 'center' });
 
     // Footer note
-    doc.setTextColor(...GRAY);
-    doc.setFontSize(7.5);
+    doc.setTextColor(120, 140, 180);
+    doc.setFontSize(8);
     doc.text(
       'Permit required under A.C.A. §3-4-1101 through §3-4-1106  ·  alcohol-delivered.biz  ·  870-209-9109',
       W / 2, H - 38, { align: 'center' }
     );
 
-    // Output as base64, convert to File, and upload so the frontend gets a
-    // shareable URL the driver can view/save on their device without a printer.
-    const base64 = doc.output('arraybuffer');
-    const bytes = new Uint8Array(base64);
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const file = new File([blob], `DriverTrainingCertificate-${recipientName.replace(/\s+/g, '_')}.pdf`, {
-      type: 'application/pdf',
+    const pdfBytes = doc.output('arraybuffer');
+
+    return new Response(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="DriverTrainingCertificate-${recipientName.replace(/\s+/g, '_')}.pdf"`,
+        'Access-Control-Allow-Origin': '*',
+      },
     });
-
-    const { file_url } = await base44.asServiceRole.integrations.Core.UploadFile({ file });
-
-    return Response.json({ success: true, download_url: file_url });
   } catch (error) {
     console.error('Certificate generation error:', error);
     return Response.json({ error: error.message }, { status: 500 });

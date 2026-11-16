@@ -1,0 +1,4 @@
+{
+  "name": "notifyOrderStatusTransition",
+  "entry": "entry.ts"
+}

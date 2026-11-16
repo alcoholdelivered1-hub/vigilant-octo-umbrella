@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, MapPin, Truck, Clock, Wine, ArrowRight, CheckCircle2, Zap, Star, Phone } from 'lucide-react';
+import { ShieldCheck, MapPin, Truck, Clock, Wine, ArrowRight, CheckCircle2, Zap, Star, Phone, Crown } from 'lucide-react';
 import AgeGate from '@/components/shared/AgeGate';
-import LandingSignup from '@/components/shared/LandingSignup';
 import { motion } from 'framer-motion';
 
 const features = [
@@ -38,11 +37,11 @@ function CountUp({ target, duration = 1800 }) {
 }
 
 export default function Home() {
-  const [ageVerified, setAgeVerified] = useState(() => localStorage.getItem('age_verified') === 'true');
+  const [ageVerified, setAgeVerified] = useState(() => sessionStorage.getItem('age_verified') === 'true');
 
   const handleAgeVerified = () => {
     setAgeVerified(true);
-    localStorage.setItem('age_verified', 'true');
+    sessionStorage.setItem('age_verified', 'true');
   };
 
   if (!ageVerified) return <AgeGate onVerified={handleAgeVerified} />;
@@ -71,7 +70,7 @@ export default function Home() {
             <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <span className="inline-flex items-center gap-2 bg-secondary/20 border border-secondary/40 text-secondary rounded-full px-4 py-1.5 text-sm font-semibold mb-7 backdrop-blur-sm">
                 <Zap className="w-3.5 h-3.5 fill-secondary" />
-                Now Live in Pine Bluff, AR
+                Final Launch Setup · Pine Bluff, AR
               </span>
             </motion.div>
 
@@ -88,20 +87,20 @@ export default function Home() {
 
             <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}
               className="text-lg text-primary-foreground/70 mt-6 leading-relaxed max-w-xl">
-              Legal, age-verified alcohol delivery from licensed Arkansas retailers —
-              GPS-tracked and fully compliant with all ABC state regulations.
+              Age-verified alcohol delivery from licensed Arkansas retailers —
+              final payment and retailer integrations are being completed before ordering opens.
             </motion.p>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.45 }}
               className="flex flex-wrap gap-3 mt-10">
               <Link to="/stores">
                 <Button size="lg" className="bg-secondary hover:bg-secondary/90 text-secondary-foreground text-base px-8 h-13 rounded-xl shadow-lg shadow-secondary/30 gap-2">
-                  Order Now <ArrowRight className="w-4 h-4" />
+                  Browse Stores <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
-              <Link to="/login">
-                <Button size="lg" variant="outline" className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10 text-base px-7 h-13 rounded-xl backdrop-blur-sm">
-                  Sign In
+              <Link to="/membership">
+                <Button size="lg" className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-base px-7 h-13 rounded-xl shadow-lg gap-2">
+                  <Crown className="w-4 h-4" /> Founding Platinum
                 </Button>
               </Link>
               <Link to="/track">
@@ -110,6 +109,15 @@ export default function Home() {
                 </Button>
               </Link>
             </motion.div>
+
+            <div className="mt-8">
+              <p className="text-xl font-semibold text-primary-foreground">We are your delivery partner.</p>
+              <Link to="/register">
+                <Button size="lg" className="mt-3 bg-secondary hover:bg-secondary/90 text-secondary-foreground rounded-xl gap-2">
+                  Sign up today <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
 
             {/* Trust badges */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
@@ -206,9 +214,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── SIGNUP FORM ── */}
-      <LandingSignup />
-
       {/* ── COMPLIANCE CTA ── */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4">
@@ -254,7 +259,7 @@ export default function Home() {
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <Wine className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-display font-bold text-lg">Alcohol Delivered <span className="text-secondary">by SipSwift</span></span>
+              <span className="font-display font-bold text-lg">Alcohol Delivered</span>
             </div>
             <p className="text-xs text-muted-foreground text-center">
               © 2026 Alcohol Delivered, LLC · Pine Bluff, AR · Licensed under Arkansas ABC · Must be 21+ · Drink responsibly.

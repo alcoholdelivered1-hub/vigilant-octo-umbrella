@@ -1,0 +1,121 @@
+{
+  "name": "RetailerSignup",
+  "type": "object",
+  "properties": {
+    "store_name": {
+      "type": "string",
+      "description": "Legal/store name of the retailer"
+    },
+    "contact_name": {
+      "type": "string",
+      "description": "Primary contact person"
+    },
+    "contact_email": {
+      "type": "string",
+      "description": "Contact email for onboarding"
+    },
+    "contact_phone": {
+      "type": "string"
+    },
+    "license_number": {
+      "type": "string",
+      "description": "Applicant-supplied Arkansas ABC retail license number. Unverified until an administrator reviews it."
+    },
+    "business_type": {
+      "type": "string",
+      "enum": [
+        "liquor_store",
+        "wine_spirits",
+        "convenience",
+        "grocery",
+        "restaurant_bar",
+        "other"
+      ],
+      "description": "Type of establishment"
+    },
+    "address": {
+      "type": "string",
+      "description": "Store street address as supplied by the applicant"
+    },
+    "city": {
+      "type": "string"
+    },
+    "county": {
+      "type": "string",
+      "description": "Arkansas county supplied by the applicant; used for delivery-zone and permit matching"
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code supplied by the applicant"
+    },
+    "zip_code": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "operating_hours": {
+      "type": "string",
+      "description": "General operating hours"
+    },
+    "has_pos": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the retailer has a POS system"
+    },
+    "pos_provider": {
+      "type": "string",
+      "description": "POS provider e.g. Clover, Square"
+    },
+    "num_locations": {
+      "type": "number",
+      "default": 1
+    },
+    "referral_source": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "contacted",
+        "approved",
+        "onboarded",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional notes about this retailer signup"
+    }
+  },
+  "required": [
+    "store_name",
+    "contact_name",
+    "contact_email"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

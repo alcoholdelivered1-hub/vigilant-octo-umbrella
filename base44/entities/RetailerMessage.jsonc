@@ -1,0 +1,69 @@
+{
+  "name": "RetailerMessage",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "store_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sender_email": {
+      "type": "string"
+    },
+    "sender_name": {
+      "type": "string"
+    },
+    "sender_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "retailer"
+      ]
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "store_id",
+    "store_emails",
+    "sender_email",
+    "sender_name",
+    "sender_role",
+    "text"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.store_emails": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

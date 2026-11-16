@@ -1,0 +1,40 @@
+{
+  "name": "Order Delivered Automation",
+  "description": "When an order transitions to delivered, automatically decrement inventory, award customer loyalty points, and email the customer a driver-rating link \u2014 no manual admin action required.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"delivered\" and .trigger.old_data.status != \"delivered\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "order_delivered_automation",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "complete_delivery": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "completeOrderDelivery",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run post-delivery chain",
+            "description": "Inventory decrement + loyalty points + rating email"
+          }
+        }
+      }
+    ]
+  }
+}

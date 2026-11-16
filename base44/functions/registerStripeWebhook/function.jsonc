@@ -1,0 +1,4 @@
+{
+  "name": "registerStripeWebhook",
+  "entry": "entry.ts"
+}

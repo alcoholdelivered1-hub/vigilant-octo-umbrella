@@ -1,0 +1,21 @@
+{
+  "name": "calculateWeeklyDriverPayouts",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "scheduled",
+      "description": "Every Friday at 5pm CT — calculates DriverPayout totals from completed deliveries (Mon–Fri) and creates pending payout records per driver.",
+      "ends_type": "never",
+      "is_active": false,
+      "name": "Weekly Driver Payout Calculation",
+      "repeat_interval": 1,
+      "repeat_on_days": [
+        5
+      ],
+      "repeat_unit": "weeks",
+      "schedule_mode": "recurring",
+      "schedule_type": "simple",
+      "start_time": "22:00"
+    }
+  ]
+}

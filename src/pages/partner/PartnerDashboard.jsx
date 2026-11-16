@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import {
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import OrderChat from '@/components/messaging/OrderChat';
 import DriverPerformance from '@/components/partner/DriverPerformance';
+import CloverConnectionCard from '@/components/partner/CloverConnectionCard';
 import { format, subDays, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -58,11 +60,11 @@ function PayoutRow({ month, revenue, orders, payout, status }) {
 function ActiveOrdersChat({ storeId, storeName }) {
   const { data: activeOrders = [] } = useQuery({
     queryKey: ['partner-active-orders', storeId],
-    queryFn: () => base44.entities.Order.filter(
-      { store_id: storeId },
-      '-created_date',
-      50
-    ),
+    queryFn: async () => {
+      const { data } = await base44.functions.invoke('getStoreActiveOrders', { store_id: storeId });
+      if (data?.error || !Array.isArray(data?.orders)) throw new Error(data?.error || 'Could not load store orders.');
+      return data.orders;
+    },
     select: (data) => data.filter(o => ['confirmed', 'preparing', 'pickup_ready', 'in_transit'].includes(o.status)),
     enabled: !!storeId,
     refetchInterval: 15000,
@@ -106,27 +108,48 @@ function ActiveOrdersChat({ storeId, storeName }) {
 }
 
 export default function PartnerDashboard() {
-  const [selectedStore, setSelectedStore] = useState('');
+  const [params, setParams] = useSearchParams();
+  const selectedStore = params.get('store_id') || '';
+  const setSelectedStore = (id) => setParams(previous => {
+    const next = new URLSearchParams(previous);
+    next.set('store_id', id);
+    return next;
+  });
   const [rangeDays, setRangeDays] = useState(30);
 
-  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
+  const { data: user, isLoading: userLoading, isError: userError } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
 
-  const { data: stores = [], isLoading: storesLoading } = useQuery({
-    queryKey: ['partner-stores'],
-    queryFn: () => base44.entities.Store.filter({ is_active: true }, 'name', 100),
-    onSuccess: (data) => {
-      if (data.length > 0 && !selectedStore) setSelectedStore(data[0].id);
-    }
+  const { data: stores = [], isLoading: storesLoading, isError: storesError, refetch: reloadStores } = useQuery({
+    queryKey: ['partner-stores', user?.email, user?.role],
+    queryFn: async () => {
+      const items = [];
+      let cursor = null;
+      do {
+        const page = await base44.entities.Store.list({ sort: 'name', limit: 100, cursor });
+        items.push(...page.items);
+        cursor = page.next_cursor;
+      } while (cursor);
+      const email = user.email?.trim().toLowerCase();
+      return user.role === 'admin' ? items : items.filter(store =>
+        email && [store.email, ...(store.contact_emails || [])].some(contact => contact?.trim().toLowerCase() === email));
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
   });
 
-  // Auto-select first store
-  const resolvedStore = selectedStore || (stores[0]?.id ?? '');
-  const storeName = stores.find(s => s.id === resolvedStore)?.name ?? '';
+  const resolvedStore = selectedStore ? (stores.some(s => s.id === selectedStore) ? selectedStore : '') : (stores[0]?.id || '');
+  const storeObj = stores.find(s => s.id === resolvedStore);
+  const storeName = storeObj?.name || '';
 
-  const { data: allOrders = [], isLoading: ordersLoading } = useQuery({
+  const { data: allOrders = [], isLoading: ordersLoading, isError: ordersError, refetch: reloadOrders } = useQuery({
     queryKey: ['partner-orders', resolvedStore],
-    queryFn: () => base44.entities.Order.filter({ store_id: resolvedStore, stripe_payment_status: 'paid' }, '-created_date', 500),
+    queryFn: async () => {
+      const { data } = await base44.functions.invoke('getStoreActiveOrders', { store_id: resolvedStore, status_filter: 'delivered' });
+      if (data?.error || !Array.isArray(data?.orders)) throw new Error(data?.error || 'Could not load store sales.');
+      return data.orders;
+    },
     enabled: !!resolvedStore,
+    refetchInterval: 15000,
   });
 
   const { data: dailyReports = [] } = useQuery({
@@ -236,7 +259,7 @@ export default function PartnerDashboard() {
     doc.save(`statement-${storeName.replace(/\s+/g, '-')}-${month}.pdf`);
   };
 
-  const isLoading = storesLoading || ordersLoading;
+  const isLoading = userLoading || storesLoading || ordersLoading;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -271,14 +294,21 @@ export default function PartnerDashboard() {
         </div>
       </div>
 
+      {storeObj?.id === '6a32d14d09b760f592dbf19e' && <CloverConnectionCard />}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-24 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading dashboard…
         </div>
+      ) : userError || storesError || ordersError ? (
+        <div role="alert" className="bg-card border rounded-2xl p-6 text-center space-y-3">
+          <p className="text-destructive">Could not load your store information. This is not a zero-sales result.</p>
+          <Button variant="outline" onClick={() => { reloadStores(); if (resolvedStore) reloadOrders(); }}>Try again</Button>
+        </div>
       ) : !resolvedStore ? (
         <div className="text-center py-20 text-muted-foreground">
           <Store className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>No stores found. Contact your administrator.</p>
+          <p>{selectedStore ? 'This store is not linked to your account. Select an available store above.' : 'No stores linked to your login or saved contact email. Contact your administrator.'}</p>
         </div>
       ) : (
         <>
@@ -421,7 +451,7 @@ export default function PartnerDashboard() {
           {/* Recent Orders */}
           <div className="bg-card border rounded-2xl overflow-hidden">
             <div className="px-5 py-3 border-b">
-              <h2 className="font-semibold text-sm">Recent Paid Orders</h2>
+              <h2 className="font-semibold text-sm">Recent Delivered Orders</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -447,13 +477,7 @@ export default function PartnerDashboard() {
                         }
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium',
-                          o.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
-                          o.status === 'in_transit' ? 'bg-sky-100 text-sky-700' :
-                          o.status === 'pickup_ready' ? 'bg-indigo-100 text-indigo-700' :
-                          'bg-amber-100 text-amber-700')}>
-                          {o.status ? o.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Paid'}
-                        </span>
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Delivered</span>
                       </td>
                     </tr>
                   ))}
@@ -468,7 +492,7 @@ export default function PartnerDashboard() {
           {/* Info box */}
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
             <p className="font-semibold mb-1 flex items-center gap-2"><AlertCircle className="w-4 h-4" /> How Payouts Work</p>
-            <p className="text-xs text-blue-700">You receive 100% of your product subtotal. The 25% platform service fee and delivery fee are charged separately to the customer. Payouts for completed months are remitted within the agreed payment schedule in your Retailer Partner Agreement.</p>
+            <p className="text-xs text-blue-700">Customers pay your connected Stripe account for the full order. Your account retains the product subtotal and collected tax before Stripe processing fees. Alcohol Delivered receives the separately shown service and delivery fees and driver tip as an application fee, then pays the driver. Stripe sends your available balance to your linked bank account on your Stripe payout schedule.</p>
           </div>
         </>
       )}

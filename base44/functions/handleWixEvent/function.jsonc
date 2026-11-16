@@ -1,0 +1,4 @@
+{
+  "name": "handleWixEvent",
+  "entry": "entry.ts"
+}

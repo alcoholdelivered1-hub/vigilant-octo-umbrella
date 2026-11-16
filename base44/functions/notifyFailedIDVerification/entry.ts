@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 function buildRawEmail(to, subject, htmlBody, senderEmail) {
   const message = [
@@ -16,6 +17,8 @@ function buildRawEmail(to, subject, htmlBody, senderEmail) {
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
+  const { authorized, response } = await assertAdmin(base44);
+  if (!authorized) return response;
   const payload = await req.json();
   const verification = payload.data;
 

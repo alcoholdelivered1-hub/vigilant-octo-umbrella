@@ -6,10 +6,6 @@
       "type": "string",
       "description": "Product name"
     },
-    "sku": {
-      "type": "string",
-      "description": "Internal SKU or UPC/barcode \u2014 used with store_id as the primary duplicate-protection key for safe catalog updates and resume-after-timeout idempotency"
-    },
     "category": {
       "type": "string",
       "enum": [
@@ -31,11 +27,6 @@
       "type": "number",
       "description": "Price in USD"
     },
-    "pack_size": {
-      "type": "string",
-      "description": "Package type e.g. Single, 6-Pack, 12-Pack, 18-Pack, 24-Pack, 30-Pack, Case",
-      "default": "Single"
-    },
     "volume": {
       "type": "string",
       "description": "e.g. 750ml, 12oz, etc."
@@ -48,10 +39,6 @@
       "type": "string",
       "description": "Reference to the Store"
     },
-    "store_email": {
-      "type": "string",
-      "description": "Retailer contact email \u2014 denormalized from Store so RLS can grant the store owner create/update access to their own inventory"
-    },
     "image_url": {
       "type": "string"
     },
@@ -62,6 +49,34 @@
     "stock_quantity": {
       "type": "number",
       "description": "Current inventory count. Leave blank if not tracking quantity."
+    },
+    "external_id": {
+      "type": "string",
+      "description": "Retailer POS item identifier"
+    },
+    "sku": {
+      "type": "string",
+      "description": "Retailer SKU"
+    },
+    "upc": {
+      "type": "string",
+      "description": "Retailer barcode or UPC"
+    },
+    "inventory_source": {
+      "type": "string",
+      "enum": [
+        "clover",
+        "cityhive",
+        "liquor_bee",
+        "manual",
+        "csv"
+      ],
+      "description": "Authoritative source for price and availability"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Most recent successful source synchronization"
     }
   },
   "required": [
@@ -72,29 +87,15 @@
   ],
   "rls": {
     "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "data.store_email": "{{user.email}}"
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "read": null,
     "update": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "data.store_email": "{{user.email}}"
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
       "user_condition": {

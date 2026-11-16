@@ -6,6 +6,7 @@ import { Star, MessageSquare, CheckCircle2, Store, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function StarRating({ rating }) {
   return (
@@ -95,14 +96,14 @@ export default function CustomerComments() {
           ))}
         </div>
         {stores.length > 0 && (
-          <select
-            value={storeFilter}
-            onChange={e => setStoreFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border text-xs bg-card"
-          >
-            <option value="">All Stores</option>
-            {stores.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <Select value={storeFilter} onValueChange={setStoreFilter}>
+            <SelectTrigger aria-label="Filter by store" className="min-w-[8.5rem] px-3 py-1.5 rounded-xl border text-xs bg-card">
+              <SelectValue placeholder="All Stores" />
+            </SelectTrigger>
+            <SelectContent>
+              {stores.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
         )}
       </div>
 

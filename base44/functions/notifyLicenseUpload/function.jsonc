@@ -1,0 +1,15 @@
+{
+  "name": "notifyLicenseUpload",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "Store",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Notify on License Document Upload"
+    }
+  ]
+}

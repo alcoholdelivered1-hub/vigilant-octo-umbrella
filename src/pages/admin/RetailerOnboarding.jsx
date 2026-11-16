@@ -4,12 +4,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, MapPin, Mail, Phone, ChevronRight, StickyNote, Upload, Send, Loader2, AlertCircle, Store as StoreIcon } from 'lucide-react';
+import { ShieldCheck, MapPin, Mail, Phone, ChevronRight, StickyNote, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import StoreTemplateLink from '@/components/onboarding/StoreTemplateLink';
+import PartnerOnboardingOverview from '@/components/retailers/PartnerOnboardingOverview';
+import PartnerKanbanBoard from '@/components/retailers/PartnerKanbanBoard';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useAuth } from '@/lib/AuthContext';
 
 const STAGES = [
+  { value: 'pending', label: 'Pending', color: 'bg-muted text-muted-foreground border-border', dot: 'bg-primary' },
   { value: 'invited',          label: 'Invited',          color: 'bg-slate-100 text-slate-600 border-slate-200',   dot: 'bg-slate-400' },
   { value: 'contract_sent',    label: 'Contract Sent',    color: 'bg-blue-50 text-blue-700 border-blue-200',       dot: 'bg-blue-500' },
   { value: 'contract_signed',  label: 'Contract Signed',  color: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-500' },
@@ -88,6 +94,7 @@ function RetailerCard({ store, onUpdate }) {
         </Select>
       </div>
 
+      <StoreTemplateLink store={store} />
       {expanded && (
         <div className="mt-3 pt-3 border-t space-y-2">
           {store.phone && (
@@ -122,142 +129,40 @@ function RetailerCard({ store, onUpdate }) {
 
 export default function RetailerOnboarding() {
   const queryClient = useQueryClient();
-
-  const { data: stores = [], isLoading } = useQuery({
-    queryKey: ['retailer-onboarding'],
-    queryFn: () => base44.entities.Store.list(),
+  const { user } = useAuth();
+  const [view, setView] = useState('kanban');
+  const { data: stores = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['retailer-onboarding'], enabled: user?.role === 'admin' && view === 'pipeline',
+    queryFn: async () => {
+      const records = []; let cursor = null;
+      do { const page = await base44.entities.Store.list({ sort: 'name', limit: 100, cursor }); records.push(...page.items); cursor = page.has_more ? page.next_cursor : null; } while (cursor);
+      return records;
+    }
   });
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Store.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['retailer-onboarding'] });
-      toast.success('Updated');
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['retailer-onboarding'] }); queryClient.invalidateQueries({ queryKey: ['partner-onboarding-overview'] }); toast.success('Updated'); }
   });
-
   const handleUpdate = (id, data) => updateMutation.mutate({ id, data });
-
-  const sendOnboardingMutation = useMutation({
-    mutationFn: () => base44.functions.invoke('sendRetailerOnboardingEmail', {}).then(r => r.data),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['retailer-onboarding'] });
-      toast.success(`Sent ${data.sent} onboarding email(s)${data.failed ? `, ${data.failed} failed` : ''}`);
-    },
-    onError: () => toast.error('Failed to send onboarding emails'),
-  });
-
-  const sendReminderMutation = useMutation({
-    mutationFn: () => base44.functions.invoke('sendContractReminders', {}).then(r => r.data),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['retailer-onboarding'] });
-      toast.success(data.sent > 0 ? `Sent ${data.sent} reminder(s)` : 'No stores due for reminders');
-    },
-    onError: () => toast.error('Failed to send reminders'),
-  });
-
-  const storesMissingEmail = stores.filter(s => s.is_active && !s.email).length;
-
-  const stageGroups = STAGES.reduce((acc, stage) => {
-    acc[stage.value] = stores.filter(s => (s.onboarding_status || 'invited') === stage.value);
-    return acc;
-  }, {});
-
-  const liveCount = stageGroups['live']?.length || 0;
-  const inProgressCount = stores.length - liveCount;
-
-  return (
-    <div className="max-w-screen-2xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="font-display text-3xl font-bold">Retailer Onboarding</h1>
-            <p className="text-muted-foreground mt-1">Track each retailer's progress through the onboarding pipeline</p>
-          </div>
-          <Link to="/admin/store-onboarding-upload">
-            <Button variant="outline" className="gap-2">
-              <Upload className="w-4 h-4" /> Upload Store List
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Action bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <Button
-          onClick={() => sendOnboardingMutation.mutate()}
-          disabled={sendOnboardingMutation.isPending}
-          className="gap-2"
-        >
-          {sendOnboardingMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          Send Onboarding Emails
-        </Button>
-        <Button
-          onClick={() => sendReminderMutation.mutate()}
-          disabled={sendReminderMutation.isPending}
-          variant="outline"
-          className="gap-2"
-        >
-          {sendReminderMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-          Send Contract Reminders
-        </Button>
-        <Link to="/admin/stores">
-          <Button variant="ghost" className="gap-2">
-            <StoreIcon className="w-4 h-4" /> Manage Stores
-          </Button>
-        </Link>
-      </div>
-
-      {/* Missing email callout */}
-      {storesMissingEmail > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-          <p className="text-sm text-amber-800 flex-1">
-            <strong>{storesMissingEmail}</strong> active stores are missing a contact email — they won't receive onboarding emails or order notifications.
-          </p>
-          <Link to="/admin/stores" className="text-xs font-semibold text-amber-700 hover:underline flex-shrink-0">
-            Add emails →
-          </Link>
-        </div>
-      )}
-
-      {/* Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div className="bg-card border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wide">Total Retailers</p>
-          <p className="text-3xl font-bold mt-1">{stores.length}</p>
-        </div>
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-          <p className="text-xs text-emerald-700 uppercase font-semibold tracking-wide">Live</p>
-          <p className="text-3xl font-bold mt-1 text-emerald-700">{liveCount}</p>
-        </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <p className="text-xs text-amber-700 uppercase font-semibold tracking-wide">In Progress</p>
-          <p className="text-3xl font-bold mt-1 text-amber-700">{inProgressCount}</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-xs text-blue-700 uppercase font-semibold tracking-wide">Awaiting Contract</p>
-          <p className="text-3xl font-bold mt-1 text-blue-700">
-            {(stageGroups['invited']?.length || 0) + (stageGroups['contract_sent']?.length || 0)}
-          </p>
-        </div>
-      </div>
-
-      {/* Kanban Board */}
-      {isLoading ? (
-        <p className="text-center py-16 text-muted-foreground">Loading...</p>
-      ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {STAGES.map(stage => (
-            <StageColumn
-              key={stage.value}
-              stage={stage}
-              stores={stageGroups[stage.value] || []}
-              onUpdate={handleUpdate}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  const stageGroups = STAGES.reduce((acc, stage) => { acc[stage.value] = stores.filter(s => (s.onboarding_status || 'invited') === stage.value); return acc; }, {});
+  const liveCount = stageGroups.live?.length || 0;
+  const summaries = [
+    { label: 'Total Retailers', count: stores.length, className: 'bg-card border rounded-xl p-4' },
+    { label: 'Live', count: liveCount, className: 'bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-emerald-700' },
+    { label: 'In Progress', count: stores.length-liveCount, className: 'bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-700' },
+    { label: 'Awaiting Contract', count: (stageGroups.pending?.length || 0)+(stageGroups.invited?.length || 0)+(stageGroups.contract_sent?.length || 0), className: 'bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-700' }
+  ];
+  if (user?.role !== 'admin') return <p className="p-8 text-muted-foreground">Sign in as an administrator to view all retailer partners.</p>;
+  return <div className="max-w-screen-2xl mx-auto px-4 py-8">
+    <header className="mb-6 flex flex-wrap items-start justify-between gap-4"><div><h1 className="font-display text-3xl font-bold">Retailer Partner Dashboard</h1><p className="text-muted-foreground mt-1">Onboarding progress and document collection for every retailer, in one view.</p></div><div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link to="/admin/retailer-contacts">Retailer contacts</Link></Button><Button asChild variant="outline"><Link to="/admin/store-launch-progress">Go-Live Command Center</Link></Button><Button asChild variant="outline"><Link to="/admin/store-onboarding-upload"><Upload className="w-4 h-4" />Upload Store List</Link></Button></div></header>
+    <Tabs value={view} onValueChange={setView}>
+      <TabsList className="mb-5 flex h-auto w-fit max-w-full flex-wrap"><TabsTrigger value="kanban">Kanban board</TabsTrigger><TabsTrigger value="overview">All partners & documents</TabsTrigger><TabsTrigger value="pipeline">Onboarding pipeline</TabsTrigger></TabsList>
+      <TabsContent value="kanban"><PartnerKanbanBoard /></TabsContent>
+      <TabsContent value="overview"><PartnerOnboardingOverview /></TabsContent>
+      <TabsContent value="pipeline">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">{summaries.map(summary => <div key={summary.label} className={summary.className}><p className="text-xs uppercase font-semibold tracking-wide">{summary.label}</p><p className="text-3xl font-bold mt-1">{summary.count}</p></div>)}</div>
+        {isLoading ? <p role="status" className="text-center py-16 text-muted-foreground">Loading…</p> : isError ? <div role="alert"><p className="text-destructive">Could not load the retailer pipeline.</p><Button variant="outline" onClick={() => refetch()}>Try again</Button></div> : <div className="flex gap-4 overflow-x-auto pb-4">{STAGES.map(stage => <StageColumn key={stage.value} stage={stage} stores={stageGroups[stage.value] || []} onUpdate={handleUpdate} />)}</div>}
+      </TabsContent>
+    </Tabs>
+  </div>;
 }

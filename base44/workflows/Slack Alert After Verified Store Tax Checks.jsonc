@@ -1,0 +1,42 @@
+{
+  "name": "Slack Alert After Verified Store Tax Checks",
+  "description": "Rechecks verified tax and shared-driver readiness when store tax evidence is completed; alerts the company Slack channel once per store.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "TaxConfirmation",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"confirmed\" and (.trigger.data.store_id // \"\") != \"\" and (.trigger.data.source // \"\") != \"\" and (.trigger.data.confirmed_at // \"\") != \"\" and (.trigger.data.notes // \"\") != \"\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "slack_verified_tax_checks",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_completion": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyStoreTaxDriverComplete",
+            "args": {
+              "source_entity": "TaxConfirmation",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Notify when tax and driver checks pass",
+            "description": "Verify live evidence and suppress repeat alerts"
+          }
+        }
+      }
+    ]
+  }
+}

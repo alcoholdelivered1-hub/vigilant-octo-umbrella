@@ -1,0 +1,41 @@
+{
+  "name": "Recheck Beverage King After Launch Test",
+  "description": "Rechecks Beverage King's complete launch checklist when the admin records the sandbox launch test as passed. All payment, tax, driver, inventory and notification gates remain required.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerOnboarding",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ ((.trigger.data.name // \"\") | ascii_downcase) == \"beverage king\" and .trigger.data.test_order_passed == true and (.trigger.event_type == \"create\" or .trigger.old_data.test_order_passed != true) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "recheck_beverage_king_after_launch_test",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "recheck_launch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "beverageKingGoLive",
+            "args": {
+              "action": "check"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Recheck Beverage King launch",
+            "description": "Activate only after every production gate passes"
+          }
+        }
+      }
+    ]
+  }
+}

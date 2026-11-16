@@ -34,7 +34,7 @@ const statusLabels = {
 
 export default function StatusBadge({ status }) {
   return (
-    <Badge variant="outline" data-status-badge className={cn('select-none text-xs font-semibold border', statusStyles[status] || 'bg-muted text-muted-foreground')}>
+    <Badge variant="outline" className={cn('text-xs font-semibold border', statusStyles[status] || 'bg-muted text-muted-foreground')}>
       {statusLabels[status] || status}
     </Badge>
   );

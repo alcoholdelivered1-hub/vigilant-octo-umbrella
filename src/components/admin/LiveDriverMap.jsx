@@ -3,16 +3,15 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import { Package, Layers, Navigation, Volume2, VolumeX, Route } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Package, Layers, Navigation, Volume2, VolumeX } from 'lucide-react';
 import AnimatedDriverMarker from '@/components/admin/AnimatedDriverMarker';
-import OptimizedRouteOverlay from '@/components/admin/OptimizedRouteOverlay';
 
 const TILE_LAYERS = {
   street: {
     label: 'Street',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap contributors',
   },
   satellite: {
     label: 'Satellite',
@@ -21,8 +20,8 @@ const TILE_LAYERS = {
   },
   dark: {
     label: 'Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap contributors',
   },
 };
 
@@ -104,32 +103,35 @@ function FitBounds({ points }) {
   useEffect(() => {
     if (points.length > 1) {
       map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: 14 });
-    } else if (points.length === 1) {
-      map.setView(points[0], 13, { animate: true });
     }
   }, [points.length]);
   return null;
 }
 
-// Fix gray/missing tiles by forcing Leaflet to recalculate container size
+// Force Leaflet to re-measure its container after mount and on resize.
+// Fixes gray/broken tiles when the map mounts inside a container that
+// was previously hidden or had a different size (e.g. after a loading skeleton).
 function InvalidateSize() {
   const map = useMap();
   useEffect(() => {
-    const timer = setTimeout(() => map.invalidateSize(), 200);
-    const interval = setInterval(() => map.invalidateSize(), 3000);
-    return () => { clearTimeout(timer); clearInterval(interval); };
+    const fix = () => map.invalidateSize();
+    // Run after the next paint so layout has settled.
+    const raf = requestAnimationFrame(fix);
+    window.addEventListener('resize', fix);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', fix);
+    };
   }, [map]);
   return null;
 }
 
 export default function LiveDriverMap({ height = '500px' }) {
+  const queryClient = useQueryClient();
   const [tileLayer, setTileLayer] = useState('street');
   const [showTileMenu, setShowTileMenu] = useState(false);
   const [followEnabled, setFollowEnabled] = useState(false);
-  const [followDriverId, setFollowDriverId] = useState(null);
-  const [showDriverMenu, setShowDriverMenu] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [optimizeEnabled, setOptimizeEnabled] = useState(false);
 
   // Active in-transit orders
   const { data: orders = [] } = useQuery({
@@ -141,28 +143,25 @@ export default function LiveDriverMap({ height = '500px' }) {
   // All drivers that are active
   const { data: drivers = [] } = useQuery({
     queryKey: ['live-map-drivers'],
-    queryFn: () => base44.entities.Driver.filter({ status: { $in: ['available', 'on_delivery'] }, is_active: true }),
+    queryFn: () => base44.entities.Driver.filter({ status: { $in: ['available', 'on_delivery'] } }),
     refetchInterval: 8000,
   });
 
-  // Real-time subscriptions
-  const [, forceUpdate] = useState(0);
+  // Real-time subscriptions — invalidate queries so fresh GPS data renders immediately
   useEffect(() => {
-    const u1 = base44.entities.Order.subscribe(() => forceUpdate(n => n + 1));
-    const u2 = base44.entities.Driver.subscribe(() => forceUpdate(n => n + 1));
+    const u1 = base44.entities.Order.subscribe(() => queryClient.invalidateQueries({ queryKey: ['live-map-orders'] }));
+    const u2 = base44.entities.Driver.subscribe(() => queryClient.invalidateQueries({ queryKey: ['live-map-drivers'] }));
     return () => { u1(); u2(); };
-  }, []);
+  }, [queryClient]);
 
   // Merge driver GPS from orders (live location) onto driver objects
   const driverLocations = drivers.map(driver => {
-    const driverOrders = orders.filter(o => o.driver_id === driver.id);
-    const liveOrder = driverOrders.find(o => o.driver_current_latitude);
+    const activeOrder = orders.find(o => o.driver_id === driver.id && o.driver_current_latitude);
     return {
       ...driver,
-      lat: liveOrder?.driver_current_latitude || driver.current_latitude,
-      lng: liveOrder?.driver_current_longitude || driver.current_longitude,
-      activeOrder: liveOrder || driverOrders[0],
-      stops: driverOrders,
+      lat: activeOrder?.driver_current_latitude || driver.current_latitude,
+      lng: activeOrder?.driver_current_longitude || driver.current_longitude,
+      activeOrder,
     };
   }).filter(d => d.lat && d.lng);
 
@@ -185,31 +184,23 @@ export default function LiveDriverMap({ height = '500px' }) {
       >
         <TileLayer
           key={tileLayer}
+          className={tileLayer === 'dark' ? 'live-map-dark-tiles' : ''}
           attribution={TILE_LAYERS[tileLayer].attribution}
           url={TILE_LAYERS[tileLayer].url}
         />
 
-        {allPoints.length > 0 && <FitBounds points={allPoints} />}
         <InvalidateSize />
 
-        {/* Follow selected driver */}
-        {followEnabled && (() => {
-          const targetDriver = followDriverId
-            ? driverLocations.find(d => d.id === followDriverId)
-            : driverLocations[0];
-          return targetDriver ? <MapFollowController target={[targetDriver.lat, targetDriver.lng]} /> : null;
-        })()}
+        {allPoints.length > 0 && <FitBounds points={allPoints} />}
+
+        {/* Follow active driver */}
+        {followEnabled && driverLocations.length > 0 && (
+          <MapFollowController target={[driverLocations[0].lat, driverLocations[0].lng]} />
+        )}
 
         {/* Driver markers — smooth movement + turn-by-turn routing */}
         {driverLocations.map(driver => (
           <AnimatedDriverMarker key={driver.id} driver={driver} icon={driverIcon(driver)} audioEnabled={audioEnabled} />
-        ))}
-
-        {/* Optimized multi-stop routes */}
-        {optimizeEnabled && driverLocations.map(driver => (
-          driver.stops && driver.stops.length >= 2 ? (
-            <OptimizedRouteOverlay key={`opt-${driver.id}`} driver={driver} stops={driver.stops} />
-          ) : null
         ))}
 
         {/* Delivery destination markers */}
@@ -241,52 +232,19 @@ export default function LiveDriverMap({ height = '500px' }) {
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-amber-600 inline-block" /> Driver (on delivery)</div>
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Delivery destination</div>
         <div className="flex items-center gap-2"><span className="w-6 border-t-2 border-blue-700 border-dashed inline-block" /> Route</div>
-        <div className="flex items-center gap-2"><span className="w-6 border-t-2 border-cyan-600 border-dashed inline-block" /> Optimized route</div>
       </div>
 
       {/* Tile style switcher */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
-        <div className="relative flex items-center">
-          <button
-            onClick={() => setFollowEnabled(v => !v)}
-            className={`border rounded-l-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 shadow transition-colors ${
-              followEnabled ? 'bg-primary text-primary-foreground' : 'bg-background/95 hover:bg-muted/50'
-            }`}
-          >
-            <Navigation className={`w-3.5 h-3.5 ${followEnabled ? 'animate-pulse' : ''}`} />
-            {followEnabled ? 'Following' : 'Follow'}
-          </button>
-          <button
-            onClick={() => setShowDriverMenu(v => !v)}
-            className={`border-y border-r rounded-r-full px-2 py-1 text-xs font-semibold shadow transition-colors ${
-              followEnabled ? 'bg-primary text-primary-foreground' : 'bg-background/95 hover:bg-muted/50'
-            }`}
-          >
-            ▾
-          </button>
-          {showDriverMenu && (
-            <>
-              <div className="fixed inset-0 z-[999]" onClick={() => setShowDriverMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 z-[1001] bg-background border rounded-lg shadow-lg overflow-hidden w-48 max-h-64 overflow-y-auto">
-                {driverLocations.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-muted-foreground">No drivers online</p>
-                ) : driverLocations.map(d => (
-                  <button
-                    key={d.id}
-                    onClick={() => { setFollowDriverId(d.id); setFollowEnabled(true); setShowDriverMenu(false); }}
-                    className={`w-full text-left px-3 py-2 text-xs font-medium flex items-center gap-2 transition-colors ${
-                      followDriverId === d.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted/60'
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                    {d.name}
-                    <span className="ml-auto text-muted-foreground">{d.status === 'on_delivery' ? 'Delivering' : 'Available'}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <button
+          onClick={() => setFollowEnabled(v => !v)}
+          className={`border rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 shadow transition-colors ${
+            followEnabled ? 'bg-primary text-primary-foreground' : 'bg-background/95 hover:bg-muted/50'
+          }`}
+        >
+          <Navigation className={`w-3.5 h-3.5 ${followEnabled ? 'animate-pulse' : ''}`} />
+          {followEnabled ? 'Following' : 'Follow'}
+        </button>
         <button
           onClick={() => setAudioEnabled(v => !v)}
           className={`border rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 shadow transition-colors ${
@@ -295,15 +253,6 @@ export default function LiveDriverMap({ height = '500px' }) {
         >
           {audioEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           {audioEnabled ? 'Voice On' : 'Voice'}
-        </button>
-        <button
-          onClick={() => setOptimizeEnabled(v => !v)}
-          className={`border rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 shadow transition-colors ${
-            optimizeEnabled ? 'bg-primary text-primary-foreground' : 'bg-background/95 hover:bg-muted/50'
-          }`}
-        >
-          <Route className={`w-3.5 h-3.5 ${optimizeEnabled ? 'animate-pulse' : ''}`} />
-          {optimizeEnabled ? 'Optimized' : 'Optimize'}
         </button>
         <div className="relative">
           <button

@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
         email: user.email,
         capabilities: {
           transfers: { requested: true },
-          card_payments: { requested: true },
         },
         metadata: {
           base44_user_id: user.id,
@@ -34,8 +33,10 @@ Deno.serve(async (req) => {
       });
       accountId = account.id;
 
-      // Persist the account ID on the user
-      await base44.auth.updateMe({ stripe_connect_account_id: accountId });
+      // Persist the account ID on the user.
+      // Service role: this is a payout destination, so app users must not be able to
+      // point their payouts at an arbitrary Stripe account from the browser.
+      await base44.asServiceRole.entities.User.update(user.id, { stripe_connect_account_id: accountId });
     }
 
     // Generate an Account Link for onboarding

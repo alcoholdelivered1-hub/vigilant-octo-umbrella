@@ -1,81 +1,66 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
+import { assertAdmin } from '../../shared/authGuard.ts';
+import { PRIORITY_STORE_IDS, ACTIVE_DELIVERY_STATUSES } from '../../shared/priorityDeliveries.ts';
+import { driverIsProductionQualified } from '../../shared/verifiedTaxDriverReadiness.ts';
+import { attachDriverCompliance } from '../../shared/driverAnnualCompliance.ts';
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
+    const access = await assertAdmin(base44);
+    if (!access.authorized) return access.response;
     const payload = await req.json();
-
-    const { data: order, old_data } = payload;
-
-    if (!order) {
-      return Response.json({ skipped: true, reason: 'No order data' });
+    const orderId = payload.order_id || payload.data?.id;
+    if (!orderId) return Response.json({ error: 'order_id is required' }, { status: 400 });
+    const action = payload.action || 'assignment';
+    if (!['assignment', 'pickup_ready'].includes(action)) return Response.json({ error: 'Invalid notification action' }, { status: 400 });
+    const order = await base44.entities.Order.get(orderId);
+    if (!PRIORITY_STORE_IDS.includes(order.store_id) || order.order_number === 'SS-MS7OHVYB') return Response.json({ skipped: true, reason: 'Outside automated priority deliveries' });
+    if (!order.driver_id || !ACTIVE_DELIVERY_STATUSES.includes(order.status) || order.stripe_payment_status !== 'paid' || order.id_verified_at_checkout !== true || order.is_in_legal_zone !== true) return Response.json({ skipped: true, reason: 'Awaiting paid, compliant driver assignment' });
+    if (payload.expected_driver_id && payload.expected_driver_id !== order.driver_id) return Response.json({ skipped: true, reason: 'Assignment changed' });
+    if (action === 'pickup_ready' && order.status !== 'pickup_ready') return Response.json({ skipped: true, reason: 'Not ready for pickup' });
+    const [driver, store] = await Promise.all([base44.entities.Driver.get(order.driver_id), base44.entities.Store.get(order.store_id)]);
+    const reviewedDriver = (await attachDriverCompliance(base44, [driver]))[0];
+    if (!driver?.email || !driverIsProductionQualified({ ...reviewedDriver, status: 'available' }) || store.onboarding_status !== 'live' || !store.is_active) return Response.json({ skipped: true, reason: 'Driver or store is not live-delivery eligible' });
+    const pickupReady = action === 'pickup_ready' || order.status === 'pickup_ready';
+    const variables = {
+      headline: pickupReady ? 'Your pickup is ready' : 'New delivery assigned',
+      summary: pickupReady ? 'The retailer has marked your order ready for pickup.' : 'A retailer-accepted order has been assigned to you. Wait for pickup readiness.',
+      order_number: order.order_number || order.id,
+      driver_name: driver.name,
+      store_name: store.name,
+      pickup_address: [store.address, store.city, store.state, store.zip_code].filter(Boolean).join(', '),
+      store_phone: store.phone || 'See store details in the app',
+      instructions: pickupReady ? 'Open your assigned order, collect the sealed package, and confirm pickup in person.' : 'Open your assigned order for delivery details. Do not mark pickup complete until the retailer has prepared the order.',
+      action_url: 'https://alcohol-delivered.biz/driver',
+    };
+    if (payload.dry_run === true) return Response.json({ dry_run: true, ready: true, action, email_sent: false });
+    await base44.asServiceRole.integrations.Core.SendEmail({ to: driver.email, template_name: 'DriverDeliveryUpdate', variables });
+    let retailerNotified = false;
+    if (action === 'assignment' && store.email) {
+      await base44.asServiceRole.integrations.Core.SendEmail({ to: store.email, template_name: 'DriverDeliveryUpdate', variables: { ...variables, headline: 'Delivery driver assigned', summary: `${driver.name} is assigned to your accepted order.`, instructions: 'Prepare and seal the order, then mark it ready for pickup in your Store Dashboard.', action_url: 'https://alcohol-delivered.biz/store/dashboard' } });
+      retailerNotified = true;
     }
-
-    // Only fire when a driver is newly assigned (driver_id changed from empty to set)
-    const driverAssigned = order.driver_id && order.driver_id !== old_data?.driver_id;
-    if (!driverAssigned) {
-      return Response.json({ skipped: true, reason: 'No new driver assignment' });
-    }
-
-    // Look up the driver record by entity ID (autoDispatchOrder sets driver_id to the Driver entity ID)
-    let driver = null;
+    // Preserve optional alerts for drivers who already registered a notification device.
+    let pushAttempted = false;
     try {
-      driver = await base44.asServiceRole.entities.Driver.get(order.driver_id);
-    } catch {
-      // Fallback: try matching by email (some legacy orders may store email instead of ID)
-      const drivers = await base44.asServiceRole.entities.Driver.filter({ email: order.driver_id });
-      driver = drivers[0];
+      const devices = await base44.entities.FCMToken.filter({ user_email: driver.email }, '-created_date', 20);
+      const tokens = [...new Set(devices.map(d => d.token).filter(Boolean))];
+      if (tokens.length) {
+        pushAttempted = true;
+        await base44.functions.invoke('sendFCMPush', {
+          tokens,
+          title: variables.headline,
+          body: `Order ${variables.order_number} at ${store.name}. Open Driver Portal.`,
+          data: { order_id: order.id, order_number: variables.order_number, type: action === 'pickup_ready' ? 'pickup_ready' : 'driver_assignment' },
+        });
+      }
+    } catch (error) {
+      console.warn('Optional driver device alert failed after email:', error.message);
     }
-
-    if (!driver?.email) {
-      return Response.json({ skipped: true, reason: 'Driver email not found' });
-    }
-
-    const subject = '🚚 New Pickup Task Assigned';
-    const body = `Hi ${driver.name || 'Driver'},
-
-You have been assigned a new delivery!
-
-Order #: ${order.order_number}
-Store: ${order.store_name}
-Pickup Address: Contact store for address
-Delivery Address: ${order.delivery_address}
-Order Total: $${order.total?.toFixed(2)}
-Customer: ${order.customer_name}
-Customer Phone: ${order.customer_phone || 'On file'}
-
-Please open the Driver Portal to view full order details and confirm pickup.
-
-⚠️ Reminder: You must verify the customer's government-issued ID at delivery.
-
-— Alcohol Delivered`;
-
-    await base44.asServiceRole.integrations.Core.SendEmail({
-      to: driver.email,
-      subject,
-      body,
-    });
-
-    // FCM push notification to driver
-    const fcmTokens = await base44.asServiceRole.entities.FCMToken.filter({ driver_id: order.driver_id });
-    if (fcmTokens.length > 0) {
-      const tokens = fcmTokens.map(t => t.token);
-      const fcmRes = await base44.asServiceRole.functions.invoke('sendFCMPush', {
-        tokens,
-        title: '🚚 New Delivery Assigned',
-        body: `Order #${order.order_number} from ${order.store_name} — ${order.delivery_address}`,
-        data: { order_id: order.id, order_number: order.order_number, type: 'driver_assignment' },
-      });
-      console.log('FCM push result:', JSON.stringify(fcmRes));
-    } else {
-      console.log('No FCM tokens for driver — push skipped');
-    }
-
-    console.log(`Sent assignment notification to driver ${driver.email} for order ${order.order_number}`);
-
-    return Response.json({ success: true, driver: driver.email, order: order.order_number });
+    return Response.json({ success: true, action, driver_notified: true, retailer_notified: retailerNotified, push_attempted: pushAttempted });
   } catch (error) {
-    console.error('Error notifying driver:', error.message);
+    console.error('Delivery notification failed:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}

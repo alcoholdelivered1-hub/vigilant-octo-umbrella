@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 function buildMimeMessage({ to, subject, htmlBody, fromName }) {
   const boundary = 'boundary_' + Math.random().toString(36).slice(2);
@@ -26,8 +27,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const base44 = createClientFromRequest(req);
-
-    // Can be called from automation (entity event) or directly
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
     const order = body.data || body.order;
     if (!order) {
       return Response.json({ error: 'No order data provided' }, { status: 400 });

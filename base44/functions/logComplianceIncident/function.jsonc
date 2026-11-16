@@ -1,0 +1,26 @@
+{
+  "name": "logComplianceIncident",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "Logs a compliance incident when an ID verification fails and sends immediate admin notification",
+      "entity_name": "IDVerification",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Log Failed ID Verification Incident"
+    },
+    {
+      "type": "entity",
+      "description": "Logs a compliance incident when an order is refused (ID failure, intoxication, minor) and sends immediate admin notification",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Log Refused Delivery Compliance Incident"
+    }
+  ]
+}

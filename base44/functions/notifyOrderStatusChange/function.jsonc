@@ -1,0 +1,16 @@
+{
+  "name": "notifyOrderStatusChange",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "Emails the customer whenever their order status changes to confirmed, preparing, pickup_ready, cancelled, or refused.",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Customer Status Notifications — All Transitions"
+    }
+  ]
+}

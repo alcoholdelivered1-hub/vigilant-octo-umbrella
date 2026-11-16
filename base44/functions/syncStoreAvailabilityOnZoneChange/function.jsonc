@@ -1,0 +1,17 @@
+{
+  "name": "syncStoreAvailabilityOnZoneChange",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "When a DeliveryZone is updated or deleted, set is_active on all stores in that county based on whether the zone is still active and wet.",
+      "entity_name": "DeliveryZone",
+      "event_types": [
+        "update",
+        "delete"
+      ],
+      "is_active": false,
+      "name": "Sync Store Availability on Zone Change"
+    }
+  ]
+}

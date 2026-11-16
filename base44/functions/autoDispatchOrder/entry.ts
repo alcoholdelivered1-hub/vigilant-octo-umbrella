@@ -1,5 +1,10 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
-import { isBackgroundCheckGenuine } from '../../shared/driverVetting.ts';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
+import { assertAdmin } from '../../shared/authGuard.ts';
+import { createDoorDashDelivery } from '../../shared/doordash.ts';
+import { PRIORITY_STORE_IDS, dispatchPriorityOrder } from '../../shared/priorityDeliveries.ts';
+import { verifyABCDeliveryArea } from '../../shared/abcDeliveryArea.ts';
+import { attachDriverCompliance } from '../../shared/driverAnnualCompliance.ts';
+import { driverHasProductionCredentials } from '../../shared/verifiedTaxDriverReadiness.ts';
 
 const PINE_BLUFF_LAT = 34.2284;
 const PINE_BLUFF_LON = -92.0032;
@@ -34,21 +39,13 @@ function getCapacityLimit(driver) {
   return 3; // fallback
 }
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
 
-    // Auth: must be authenticated via platform (admin user or automation)
-    const authenticated = await base44.auth.isAuthenticated().catch(() => false);
-    if (!authenticated) {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
-    // If a user is present, they must be an admin (automations have no user)
-    const currentUser = await base44.auth.me().catch(() => null);
-    if (currentUser && currentUser.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     // Accept either a direct call with order_id OR an automation payload
     const orderId = body.order_id || body.event?.entity_id || body.data?.id;
@@ -64,76 +61,80 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Dispatch orders that are paid/confirmed or pending and have no driver yet.
-    // The Stripe webhook creates paid orders with status 'confirmed', so we must
-    // accept 'confirmed' here or auto-dispatch would never fire for real orders.
-    if (order.driver_id) {
-      return Response.json({ skipped: true, reason: 'Order already has a driver' });
+    // The two priority retailers use cleared internal drivers, never paid third-party fallback.
+    if (PRIORITY_STORE_IDS.includes(order.store_id)) {
+      return Response.json(await dispatchPriorityOrder(base44, order, body.dry_run === true));
     }
-    if (order.status !== 'pending' && order.status !== 'confirmed') {
-      return Response.json({
-        skipped: true,
-        reason: `Order status is '${order.status}' — only pending/confirmed orders can be dispatched`,
-      });
+    if (body.priority_only === true) return Response.json({ skipped: true, reason: 'Not a priority store' });
+
+    // Only dispatch after the retailer has accepted the paid, compliant order.
+    if (order.status !== 'confirmed' || order.driver_id || order.stripe_payment_status !== 'paid' || order.id_verified_at_checkout !== true || order.is_in_legal_zone !== true) {
+      let reason = `Order status is '${order.status}', not retailer-confirmed`;
+      if (order.driver_id) reason = 'Order already has a driver';
+      else if (order.stripe_payment_status !== 'paid') reason = 'Order payment is not confirmed';
+      else if (order.id_verified_at_checkout !== true) reason = 'Checkout ID verification is not confirmed';
+      else if (order.is_in_legal_zone !== true) reason = 'Delivery zone is not confirmed legal';
+      return Response.json({ skipped: true, reason });
     }
 
-    const orderLat = order.delivery_latitude || order.order_latitude || PINE_BLUFF_LAT;
-    const orderLon = order.delivery_longitude || order.order_longitude || PINE_BLUFF_LON;
+    // === Primary: attempt DoorDash Drive delivery ===
+    let store = null;
+    try {
+      if (order.store_id) store = await base44.asServiceRole.entities.Store.get(order.store_id);
+    } catch {}
+    if (!store && order.store_name) {
+      const byName = await base44.asServiceRole.entities.Store.filter({ name: order.store_name }, '-updated_date', 1);
+      store = byName?.[0] || null;
+    }
 
-    // --- ZONE DETECTION ---
-    // Determine which delivery zone the order's delivery address falls within
-    const zones = await base44.asServiceRole.entities.DeliveryZone.filter({ is_active: true });
+    if (!store) return Response.json({ skipped: true, reason: 'A verified retailer is required before dispatch.' });
+    try { await verifyABCDeliveryArea(store, order.delivery_latitude, order.delivery_longitude); }
+    catch (error) { return Response.json({ skipped: true, reason: error.message }); }
 
-    const orderZone = zones
-      .filter((z) => z.center_latitude && z.center_longitude)
-      .map((z) => {
-        const dist = haversineDistance(orderLat, orderLon, z.center_latitude, z.center_longitude);
-        return { zone: z, distance: dist, inZone: dist <= (z.radius_miles || 10) };
-      })
-      .filter((z) => z.inZone)
-      .sort((a, b) => a.distance - b.distance)[0];
+    if (store) {
+      let ddResult;
+      try {
+        ddResult = await createDoorDashDelivery({ order, store });
+      } catch (ddErr) {
+        ddResult = { success: false, error: ddErr.message };
+      }
 
-    console.log(
-      `[autoDispatch] Order ${order.order_number} at (${orderLat.toFixed(4)}, ${orderLon.toFixed(4)})` +
-        (orderZone
-          ? ` → zone "${orderZone.zone.name}" (${orderZone.distance.toFixed(1)} mi from center, radius ${orderZone.zone.radius_miles}mi)`
-          : ' → no matching zone, using all drivers')
-    );
+      if (ddResult.success) {
+        await base44.asServiceRole.entities.Order.update(orderId, {
+          driver_id: `doordash:${ddResult.delivery_id}`,
+          driver_email: 'doordash@alcohol-delivered.local',
+          driver_name: 'DoorDash Dasher',
+          doordash_delivery_id: ddResult.delivery_id,
+          status: 'confirmed',
+          notes: (order.notes ? order.notes + '\n' : '') + `Dispatched to DoorDash (delivery ${ddResult.delivery_id}).`,
+        });
 
-    // Fetch all active, available drivers
-    const allDrivers = await base44.asServiceRole.entities.Driver.filter({
+        console.log(`[autoDispatch] Order ${order.order_number} → DoorDash (delivery ${ddResult.delivery_id})`);
+
+        return Response.json({
+          success: true,
+          fulfillment: 'doordash',
+          order_number: order.order_number,
+          doordash_delivery_id: ddResult.delivery_id,
+          dasher_status: ddResult.dasher_status,
+        });
+      }
+
+      console.warn(`[autoDispatch] DoorDash unavailable for order ${order.order_number}: ${ddResult.error}. Falling back to internal drivers.`);
+    } else {
+      console.warn(`[autoDispatch] Store not found for order ${order.order_number}; skipping DoorDash attempt, using internal drivers.`);
+    }
+
+    // === Fallback: internal drivers ===
+    const driverRecords = await base44.asServiceRole.entities.Driver.filter({
       is_active: true,
       status: { $in: ['available', 'on_delivery'] },
     });
+    const allDrivers = (await attachDriverCompliance(base44, driverRecords)).filter(driverHasProductionCredentials);
 
     if (allDrivers.length === 0) {
       console.warn(`[autoDispatch] No available drivers for order ${order.order_number}`);
-      return Response.json({ success: false, reason: 'No available drivers' });
-    }
-
-    // --- ZONE-AWARE DRIVER FILTERING ---
-    // Only consider drivers whose current GPS location is within the order's zone
-    let candidateDrivers = allDrivers;
-    let zoneMatched = false;
-    if (orderZone) {
-      const zc = orderZone.zone;
-      candidateDrivers = allDrivers.filter((d) => {
-        if (!d.current_latitude || !d.current_longitude) return false;
-        return (
-          haversineDistance(d.current_latitude, d.current_longitude, zc.center_latitude, zc.center_longitude) <=
-          (zc.radius_miles || 10)
-        );
-      });
-      zoneMatched = true;
-      console.log(
-        `[autoDispatch] Zone "${zc.name}": ${candidateDrivers.length} of ${allDrivers.length} available drivers are in-zone`
-      );
-      // Fall back to all drivers if no drivers are currently in the zone
-      if (candidateDrivers.length === 0) {
-        console.warn(`[autoDispatch] No drivers in zone "${zc.name}" — falling back to all available drivers`);
-        candidateDrivers = allDrivers;
-        zoneMatched = false;
-      }
+      return Response.json({ success: false, fulfillment: 'internal', reason: 'No available drivers' });
     }
 
     // Fetch active orders to measure each driver's current load
@@ -141,8 +142,11 @@ Deno.serve(async (req) => {
       status: { $in: ['confirmed', 'preparing', 'pickup_ready', 'in_transit'] },
     });
 
-    // Score each candidate driver: lower = better
-    const scored = candidateDrivers
+    const orderLat = order.delivery_latitude || order.order_latitude || PINE_BLUFF_LAT;
+    const orderLon = order.delivery_longitude || order.order_longitude || PINE_BLUFF_LON;
+
+    // Score each driver: lower = better
+    const scored = allDrivers
       .map((driver) => {
         const dLat = driver.current_latitude || PINE_BLUFF_LAT;
         const dLon = driver.current_longitude || PINE_BLUFF_LON;
@@ -153,10 +157,6 @@ Deno.serve(async (req) => {
         // Skip drivers at capacity
         if (load >= capacity) return null;
 
-        // Security gate: only drivers with a genuine cleared background check
-        // may carry customer orders (simulated/test checks are rejected).
-        if (!isBackgroundCheckGenuine(driver)) return null;
-
         // Score: distance (miles) + 4 pts per active order already carrying
         const score = distance + load * 4;
         return { driver, distance, load, capacity, score };
@@ -165,15 +165,16 @@ Deno.serve(async (req) => {
       .sort((a, b) => a.score - b.score);
 
     if (scored.length === 0) {
-      console.warn(`[autoDispatch] All candidate drivers are at capacity for order ${order.order_number}`);
-      return Response.json({ success: false, reason: 'All available drivers are at capacity' });
+      console.warn(`[autoDispatch] All drivers are at capacity for order ${order.order_number}`);
+      return Response.json({ success: false, fulfillment: 'internal', reason: 'All available drivers are at capacity' });
     }
 
     const best = scored[0];
 
-    // Assign driver and advance status to 'confirmed'
+    // Assign driver while preserving the retailer-confirmed status.
     await base44.asServiceRole.entities.Order.update(orderId, {
       driver_id: best.driver.id,
+      driver_email: best.driver.email,
       driver_name: best.driver.name,
       status: 'confirmed',
     });
@@ -187,76 +188,18 @@ Deno.serve(async (req) => {
 
     console.log(
       `[autoDispatch] Order ${order.order_number} → Driver ${best.driver.name} ` +
-        `(${best.distance.toFixed(1)} mi, load ${best.load}/${best.capacity}, score ${best.score.toFixed(1)}, zone_match: ${zoneMatched})`
+        `(${best.distance.toFixed(1)} mi, load ${best.load}/${best.capacity}, score ${best.score.toFixed(1)})`
     );
-
-    // --- NOTIFY THE CLOSEST ZONE DRIVER ---
-    const zoneName = orderZone?.zone?.name || 'Pine Bluff';
-    const distStr = best.distance.toFixed(1);
-
-    // FCM push notification to the driver's registered devices
-    try {
-      const fcmTokens = await base44.asServiceRole.entities.FCMToken.filter({ driver_id: best.driver.id });
-      if (fcmTokens.length > 0) {
-        await base44.asServiceRole.functions.invoke('sendFCMPush', {
-          tokens: fcmTokens.map((t) => t.token),
-          title: '🎯 New Order in Your Zone',
-          body: `Order #${order.order_number} from ${order.store_name} — ${distStr} mi away. You're the closest driver in ${zoneName}!`,
-          data: {
-            order_id: order.id,
-            order_number: order.order_number,
-            type: 'zone_dispatch',
-            zone: zoneName,
-          },
-        });
-        console.log(`[autoDispatch] Push sent to driver ${best.driver.name} (${fcmTokens.length} tokens)`);
-      } else {
-        console.log(`[autoDispatch] No FCM tokens for driver ${best.driver.name} — push skipped`);
-      }
-    } catch (pushErr) {
-      console.error(`[autoDispatch] Push notification failed:`, pushErr.message);
-    }
-
-    // Email notification to the driver
-    if (best.driver.email) {
-      try {
-        await base44.asServiceRole.integrations.Core.SendEmail({
-          to: best.driver.email,
-          subject: `🎯 New Order in Your Zone — ${order.order_number}`,
-          body: `
-            <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; background: #f9fafb; border-radius: 12px;">
-              <h2 style="color: #1e3a8a; margin-bottom: 4px;">🎯 New Order Dispatched to You!</h2>
-              <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">You're the closest available driver in the <strong>${zoneName}</strong> zone. This order has been auto-assigned to you.</p>
-              <div style="background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; border: 1px solid #e5e7eb;">
-                <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                  <tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">Order #</td><td style="padding: 6px 0; font-weight: 600;">${order.order_number}</td></tr>
-                  <tr><td style="padding: 6px 0; color: #6b7280;">Store</td><td style="padding: 6px 0;">${order.store_name}</td></tr>
-                  <tr><td style="padding: 6px 0; color: #6b7280;">Deliver To</td><td style="padding: 6px 0;">${order.delivery_address}</td></tr>
-                  <tr><td style="padding: 6px 0; color: #6b7280;">Distance</td><td style="padding: 6px 0;">~${distStr} miles from your location</td></tr>
-                  <tr><td style="padding: 6px 0; color: #6b7280;">Zone</td><td style="padding: 6px 0;">${zoneName}</td></tr>
-                </table>
-              </div>
-              <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">Open the Driver Portal to view full details and confirm pickup. Remember to verify customer ID at delivery.</p>
-            </div>
-          `,
-        });
-        console.log(`[autoDispatch] Email sent to driver ${best.driver.email}`);
-      } catch (emailErr) {
-        console.error(`[autoDispatch] Email notification failed:`, emailErr.message);
-      }
-    }
 
     return Response.json({
       success: true,
+      fulfillment: 'internal',
       order_number: order.order_number,
-      zone: zoneName,
-      zone_match: zoneMatched,
       assigned_driver: best.driver.name,
       driver_distance_miles: parseFloat(best.distance.toFixed(2)),
       driver_current_load: best.load,
       driver_capacity: best.capacity,
       score: parseFloat(best.score.toFixed(2)),
-      notification_sent: true,
       all_candidates: scored.map((s) => ({
         name: s.driver.name,
         distance_mi: parseFloat(s.distance.toFixed(2)),
@@ -269,4 +212,4 @@ Deno.serve(async (req) => {
     console.error('[autoDispatch] Error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}

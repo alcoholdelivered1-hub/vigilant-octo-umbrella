@@ -1,0 +1,16 @@
+{
+  "name": "notifyDriverMileageBonus",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "Fires when a driver is assigned to an order with distance over 7 miles, notifying them of their extra mileage pay.",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Notify Driver of Mileage Bonus"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "entity_name": "BusinessPermit"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "store_permit_change_alerts",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_licenses": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "checkStoreLicenseAlerts",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check license expiration",
+            "description": "Evaluate updated store permits"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Store Permit Change Alerts",
+  "description": "Refresh store license alerts when linked business permit records change."
+}

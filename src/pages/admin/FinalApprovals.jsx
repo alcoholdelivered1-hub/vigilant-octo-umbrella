@@ -1,0 +1,27 @@
+import React from 'react';
+import { useSearchParams, Navigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Bell, RefreshCw } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
+import { Button } from '@/components/ui/button';
+import useFinalApprovalQueue from '@/components/approvals/useFinalApprovalQueue';
+import FinalApprovalWorkspace from '@/components/approvals/FinalApprovalWorkspace';
+import AppInstallCard from '@/components/shared/AppInstallCard';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import FCMSetup from '@/components/notifications/FCMSetup';
+import { FIREBASE_CONFIG, FIREBASE_VAPID_KEY } from '@/lib/firebaseConfig';
+export default function FinalApprovals() {
+  const {user} = useAuth(), [params,setParams] = useSearchParams(), queue = useFinalApprovalQueue();
+  const storeId = params.get('store_id') || '';
+  const stores = useQuery({queryKey:['final-approval-stores'],enabled:user?.role === 'admin',queryFn:async () => { const {data} = await base44.functions.invoke('retailerSetup',{action:'list'}); if (data.error) throw new Error(data.error); return data.stores; }});
+  const pushes = useQuery({queryKey:['final-approval-push'],enabled:user?.role === 'admin',refetchInterval:30000,queryFn:() => base44.entities.RetailerApprovalAlert.filter({recipient_user_id:user.id},'-created_date',10)});
+  if (user?.role !== 'admin') return <Navigate to="/home" replace />;
+  const choose = id => setParams({store_id:id});
+  const name = id => stores.data?.find(s => s.id === id)?.name || 'Retailer';
+  return <div className="mx-auto max-w-6xl space-y-6 px-4 py-6"><header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="font-display text-3xl font-bold">Final Approvals</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground">Review each retailer’s completed steps. Approved information is applied to its own store and onboarding records; launch checks are never bypassed.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" className={queue.unseen.length ? 'retailer-reply-attention' : ''} onClick={() => {queue.markSeen(); document.getElementById('retailer-change-queue')?.scrollIntoView({behavior:'auto',block:'start'});}}><Bell />{queue.unseen.length} new changes</Button><Button size="icon" variant="outline" aria-label="Refresh retailer changes" disabled={queue.isFetching} onClick={() => queue.refetch()}><RefreshCw className={queue.isFetching ? 'animate-spin' : ''} /></Button></div></header>
+    <AppInstallCard />
+    <section className="rounded-xl border bg-card p-4 space-y-2"><h2 className="font-semibold">Phone and laptop step alerts</h2><p className="text-sm text-muted-foreground">Register each device below and allow browser notifications. On iPhone/iPad, use a supported iOS version and open the app from its home-screen icon first. New submitted steps, documents and signed agreements alert your registered devices; draft edits do not. Delivery also requires valid Firebase sender credentials.</p><FCMSetup firebaseConfig={FIREBASE_CONFIG} vapidKey={FIREBASE_VAPID_KEY} />{pushes.error && <p role="alert" className="text-sm text-destructive">Unable to load push delivery status.</p>}{pushes.data?.slice(0,3).map(alert => <p key={alert.id} className="text-sm">{alert.store_name}: {alert.step_label} · {alert.push_status === 'sent' ? 'Push request sent' : alert.push_status}{alert.push_error && <span className="block text-destructive">{alert.push_error}</span>}</p>)}</section>
+    <div className="grid items-start gap-6 lg:grid-cols-3"><section id="retailer-change-queue" className="space-y-3 lg:sticky lg:top-4"><h2 className="text-lg font-semibold">Awaiting review ({queue.items.length})</h2>{queue.isLoading && <p role="status">Loading retailer submissions…</p>}{queue.error && <p role="alert" className="text-sm text-destructive">Changes could not be loaded. Refresh to retry.</p>}{!queue.isLoading && !queue.error && !queue.items.length && <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">No submitted changes awaiting review.</p>}{queue.items.map(item => <button key={item.key} className={`w-full rounded-xl border p-4 text-left ${item.store_id === storeId ? 'border-primary bg-primary/10' : 'bg-card'}`} onClick={() => choose(item.store_id)}><span className="block font-semibold">{name(item.store_id)}</span><span className="block text-sm capitalize">{item.label}</span><span className="block text-xs text-muted-foreground">{new Date(item.submitted_at || item.created_date).toLocaleString()}</span></button>)}</section><section className="min-w-0 space-y-4 lg:col-span-2"><label className="block text-sm font-medium">Retailer<Select value={storeId} onValueChange={choose}><SelectTrigger aria-label="Retailer" className="mt-2 w-full min-h-11 rounded-md border bg-card px-3"><SelectValue placeholder="Select a retailer" /></SelectTrigger><SelectContent>{stores.data?.map(store => <SelectItem key={store.id} value={store.id}>{store.name} · {store.city}</SelectItem>)}</SelectContent></Select></label>{stores.isLoading && <p role="status">Loading retailers…</p>}{stores.error && <p role="alert" className="text-sm text-destructive">Retailers could not be loaded.</p>}<FinalApprovalWorkspace key={storeId} storeId={storeId} onChanged={queue.refetch} /></section></div>
+  </div>;
+}

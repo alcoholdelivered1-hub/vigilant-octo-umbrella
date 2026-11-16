@@ -1,0 +1,61 @@
+{
+  "name": "RetailerProgressAlertState",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "completed_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stage": {
+      "type": "string"
+    },
+    "live": {
+      "type": "boolean"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_email_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "gmail_message_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "completed_keys",
+    "stage",
+    "live",
+    "checked_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

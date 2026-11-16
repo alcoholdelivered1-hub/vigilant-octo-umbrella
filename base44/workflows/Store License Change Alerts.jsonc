@@ -1,0 +1,40 @@
+{
+  "name": "Store License Change Alerts",
+  "description": "Refresh dashboard license alerts and email the administrator when store license details change.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Store",
+      "events": [
+        "create",
+        "update",
+        "delete"
+      ]
+    },
+    "condition": "${ .trigger.event_type != \"update\" or any((.trigger.changed_fields // [])[]; . == \"license_number\" or . == \"license_status\" or . == \"license_expiration_date\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "store_license_change_alerts",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_licenses": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "checkStoreLicenseAlerts",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check store licenses",
+            "description": "Dashboard and email alerts"
+          }
+        }
+      }
+    ]
+  }
+}

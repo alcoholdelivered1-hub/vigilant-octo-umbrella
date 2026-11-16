@@ -1,32 +1,39 @@
-# Alcohol Delivered
+**Welcome to your Base44 project** 
 
-## Local development
+**About**
 
-1. Install the locked dependencies with `npm ci`.
-2. Set `VITE_BASE44_APP_ID` in the local environment and configure any Base44
-   function version or app URL values required by your Base44 deployment.
-3. Run `npm run dev`.
+View and Edit  your app on [Base44.com](http://Base44.com) 
 
-## Production build
+This project contains everything you need to run your app locally.
 
-Run `npm run build`; the deployable static assets are written to `dist/`.
-The Base44 project configuration uses `npm run build` and `dist/` as the output
-directory.
+**Edit the code in your local development environment**
 
-## Optional push notifications
+Any change pushed to the repo will also be reflected in the Base44 Builder.
 
-Set these Firebase Web App values in the deployment environment to enable
-browser push notifications:
+**Prerequisites:** 
 
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
-- `VITE_FIREBASE_VAPID_KEY`
+1. Clone the repository using the project's Git URL 
+2. Navigate to the project directory
+3. Install dependencies: `npm install`
+4. Create an `.env.local` file and set the right environment variables
 
-Push notifications remain disabled when any required Firebase value is absent.
-These are public client configuration values, not server secrets. Never put
-Firebase Admin credentials, private keys, Stripe secret keys, or Clover tokens
-in `VITE_` variables or commit them to this repository.
+```
+VITE_BASE44_APP_ID=your_app_id
+VITE_BASE44_APP_BASE_URL=your_backend_url
+
+e.g.
+VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
+VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+```
+
+Run the app: `npm run dev`
+
+**Publish your changes**
+
+Open [Base44.com](http://Base44.com) and click on Publish.
+
+**Docs & Support**
+
+Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
+
+Support: [https://app.base44.com/support](https://app.base44.com/support)

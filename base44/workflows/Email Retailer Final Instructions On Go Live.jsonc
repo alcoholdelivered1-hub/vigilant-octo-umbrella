@@ -1,0 +1,42 @@
+{
+  "name": "Email Retailer Final Instructions On Go Live",
+  "description": "Sends a business Gmail live-status update and operating instructions to each saved retailer contact whenever onboarding status changes to Live. Delivery receipts prevent repeat emails for the same transition, including workflow retries.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Store",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.onboarding_status == \"live\" and .trigger.old_data.onboarding_status != \"live\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "email_retailer_final_instructions_on_go_live",
+      "version": "1.2",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_final_instructions": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendGoLiveChecklist",
+            "args": {
+              "store_id": "${ .trigger.entity_id }",
+              "launch_instructions": true,
+              "live_changed_at": "${ .trigger.data.updated_date }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email retailer live-status update",
+            "description": "Business Gmail, saved retailer contacts"
+          }
+        }
+      }
+    ]
+  }
+}

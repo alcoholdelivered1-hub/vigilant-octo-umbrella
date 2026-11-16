@@ -1,0 +1,15 @@
+{
+  "name": "logOrderToSheets",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "Order",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Log New Order to Google Sheets"
+    }
+  ]
+}

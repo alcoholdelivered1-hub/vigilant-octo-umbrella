@@ -1,20 +1,21 @@
 {
   "name": "Alcohol Delivered",
   "short_name": "Alcohol Delivered",
-  "description": "Licensed Arkansas alcohol delivery — connect with participating licensed retailers and qualified drivers in approved service areas.",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "description": "Local alcohol delivery from licensed Arkansas retailers with age and ID verification.",
+  "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#1e3a8a",
+  "background_color": "#ffffff",
   "theme_color": "#1e3a8a",
-  "categories": ["lifestyle", "food", "shopping"],
   "icons": [
     {
-      "src": "https://media.base44.com/images/public/69cf025b60e5f22c0c72f042/4dcee9154_generated_image.png",
-      "sizes": "any",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "https://media.base44.com/images/public/69cf025b60e5f22c0c72f042/d89819219_generated_image.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://media.base44.com/images/public/69cf025b60e5f22c0c72f042/d89819219_generated_image.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }

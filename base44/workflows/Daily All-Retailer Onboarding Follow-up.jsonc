@@ -1,0 +1,44 @@
+{
+  "name": "Daily All-Retailer Onboarding Follow-up",
+  "description": "Every weekday at 10am Central, follows up with ALL retailers who received their onboarding email 3+ days ago but haven't signed their agreement yet. Sends their current next setup step via Gmail. Skips stores already contacted within 72 hours and stores that already submitted their contract.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 10 * * 1-5",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_all_retailer_follow_up",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "follow_up_all": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendContractReminders"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Follow up with all stalled retailers",
+            "description": "Sends next setup step to every retailer 3+ days past onboarding email"
+          }
+        }
+      }
+    ]
+  }
+}

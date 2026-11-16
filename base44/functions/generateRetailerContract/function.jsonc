@@ -1,0 +1,4 @@
+{
+  "name": "generateRetailerContract",
+  "entry": "entry.ts"
+}

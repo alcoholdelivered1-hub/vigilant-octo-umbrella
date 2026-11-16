@@ -1,0 +1,4 @@
+{
+  "name": "sendComplianceChecklist",
+  "entry": "entry.ts"
+}

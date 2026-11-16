@@ -1,0 +1,15 @@
+{
+  "name": "notifyComplianceStatusChange",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "Store",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Notify Store Owner on Compliance Status Change"
+    }
+  ]
+}

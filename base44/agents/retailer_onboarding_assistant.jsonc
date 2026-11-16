@@ -1,0 +1,171 @@
+{
+  "description": "AI assistant that onboards retailers to the Alcohol Delivered platform - sets up store profiles, manages inventory, configures payment processing, and guides retailers through the full launch process so they can start managing inventory and orders.",
+  "instructions": "You are the Retailer Onboarding Assistant for Alcohol Delivered, a liquor store delivery platform in Arkansas. Your job is to help admins and retailers complete the full onboarding process so stores can go live and start managing inventory and orders.\n\nWhen a user asks you to onboard a retailer, follow this process:\n\n1. **Gather Store Information**: Ask for store name, contact name, contact email, phone, address, city, county, state, zip code, license number, business type, and POS provider. Use the RetailerSignup entity to create or find existing applications.\n\n2. **Create Store Record**: Once a signup is approved, create a Store entity record with all the retailer details, set onboarding_status to 'invited', compliance_status to 'compliant', and assign the correct delivery zone based on county.\n\n3. **Retailer Agreement**: Guide the user through the retailer agreement process. Check if a RetailerAgreement record exists for the store. If not, help create one. Update the agreement status to 'submitted' and review_status to 'approved' when the retailer confirms.\n\n4. **Stripe Payment Setup**: Check the store's stripe_connection_status. If disconnected, guide the retailer through Stripe Connect onboarding. Update the store's stripe_connect_account_id, stripe_connection_status to 'connected', and stripe_connected_at when complete.\n\n5. **Clover POS Integration**: Check if a CloverConnection exists for the store. If not, guide the user through Clover OAuth authorization. Help sync inventory from Clover once connected.\n\n6. **Inventory Setup**: Help the retailer add or sync products using the Product entity. Each product needs name, category, price, store_id, and optionally brand, volume, ABV, image_url, SKU, UPC. Support bulk inventory uploads via CSV or Google Sheets sync.\n\n7. **Tax Configuration**: Create a TaxConfirmation record for the store with the correct sales tax rate based on county (Jefferson County: 8.5%, Pulaski County: 9.0%, etc.).\n\n8. **Driver Coverage**: Assign drivers to the store by creating DriverStoreCoverage records linking available drivers to the store.\n\n9. **Compliance Verification**: Verify the store's license_status is 'active', compliance_status is 'compliant', and all required documents (StoreSetupDocument) are approved.\n\n10. **Go-Live**: When all steps are complete, update the store's onboarding_status to 'live', is_active to true, is_browsable to true. Create a StoreLaunchApproval record and a RetailerActivationRequest with status 'activated'.\n\nAlways check existing records before creating new ones. Use store_id to link all related records. Be thorough but concise. If any step is blocked, explain what's needed and suggest the next action.",
+  "tool_configs": [
+    {
+      "entity_name": "Store",
+      "allowed_operations": [
+        "create",
+        "read",
+        "update"
+      ]
+    },
+    {
+      "entity_name": "RetailerOnboarding",
+      "allowed_operations": [
+        "read",
+        "update"
+      ]
+    },
+    {
+      "entity_name": "RetailerSignup",
+      "allowed_operations": [
+        "create",
+        "read"
+      ]
+    },
+    {
+      "entity_name": "Product",
+      "allowed_operations": [
+        "create",
+        "read",
+        "update"
+      ]
+    },
+    {
+      "entity_name": "RetailerAgreement",
+      "allowed_operations": [
+        "read",
+        "update"
+      ]
+    },
+    {
+      "entity_name": "StoreSetupDocument",
+      "allowed_operations": [
+        "create",
+        "read",
+        "update"
+      ]
+    },
+    {
+      "entity_name": "TaxConfirmation",
+      "allowed_operations": [
+        "create",
+        "read"
+      ]
+    },
+    {
+      "entity_name": "DriverStoreCoverage",
+      "allowed_operations": [
+        "create",
+        "read"
+      ]
+    },
+    {
+      "entity_name": "DeliveryZone",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "Order",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "CloverConnection",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "BusinessPermit",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "StoreLaunchApproval",
+      "allowed_operations": [
+        "create"
+      ]
+    },
+    {
+      "entity_name": "RetailerActivationRequest",
+      "allowed_operations": [
+        "create"
+      ]
+    },
+    {
+      "entity_name": "RetailerSetupSubmission",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "function_name": "processRetailerSignup",
+      "description": "Process and approve retailer signup applications"
+    },
+    {
+      "function_name": "submitRetailerSignup",
+      "description": "Submit new retailer signup applications"
+    },
+    {
+      "function_name": "retailerSetup",
+      "description": "Manage retailer setup steps and submissions"
+    },
+    {
+      "function_name": "retailerGoLive",
+      "description": "Launch a retailer and set them to live status"
+    },
+    {
+      "function_name": "syncProductsFromCSV",
+      "description": "Sync product inventory from a CSV file"
+    },
+    {
+      "function_name": "syncInventoryFromGoogleSheet",
+      "description": "Sync product inventory from a Google Sheet"
+    },
+    {
+      "function_name": "uploadAndSyncInventory",
+      "description": "Upload and sync inventory for a store"
+    },
+    {
+      "function_name": "syncProductsToStripe",
+      "description": "Sync products to Stripe for payment processing"
+    },
+    {
+      "function_name": "validateDeliveryArea",
+      "description": "Validate a delivery address is in a legal zone"
+    },
+    {
+      "function_name": "validateCompliance",
+      "description": "Validate compliance requirements for a store"
+    },
+    {
+      "function_name": "generateRetailerContract",
+      "description": "Generate a retailer agreement contract"
+    }
+  ],
+  "context_files": [],
+  "app_user_connector_configs": [],
+  "selected_skill_names": [],
+  "selected_workspace_skill_ids": [],
+  "model": "automatic",
+  "whatsapp_greeting": null,
+  "telegram_greeting": null,
+  "line_greeting": null,
+  "memory_config": {
+    "enabled": true,
+    "scope": "both",
+    "include_other_conversation_context": false,
+    "instructions": null
+  },
+  "voice_config": {
+    "voice_id": null
+  },
+  "emails_settings": null,
+  "allow_anonymous_access": false,
+  "name": "retailer_onboarding_assistant"
+}

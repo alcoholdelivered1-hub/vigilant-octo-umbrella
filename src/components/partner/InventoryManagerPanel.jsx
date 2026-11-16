@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Package, Search, Loader2, AlertTriangle, Edit2, Check, X, Tag } from 'lucide-react';
+import { Package, Search, Loader2, AlertTriangle, Edit2, Check, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import PriceEditor from '@/components/partner/PriceEditor';
 
 const CATEGORY_COLORS = {
   beer:        'bg-amber-100 text-amber-700',
@@ -21,7 +20,7 @@ function QuantityEditor({ product, storeId }) {
   const [val, setVal] = useState('');
 
   const mutation = useMutation({
-    mutationFn: (qty) => base44.entities.Product.update(product.id, { stock_quantity: qty }),
+    mutationFn: (qty) => base44.functions.invoke('updateRetailerProduct', { product_id: product.id, stock_quantity: qty }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['store-products', storeId] });
       setEditing(false);
@@ -77,6 +76,59 @@ function QuantityEditor({ product, storeId }) {
   );
 }
 
+function PriceEditor({ product, storeId }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: (price) => base44.functions.invoke('updateRetailerProduct', {
+      product_id: product.id,
+      price,
+      reason: 'Retailer manual correction while Clover catalog pricing is being reconciled',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['store-products', storeId] });
+      setEditing(false);
+    },
+  });
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          className="w-20 border rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary"
+          autoFocus
+          onKeyDown={e => {
+            if (e.key === 'Enter') mutation.mutate(Number(val));
+            if (e.key === 'Escape') setEditing(false);
+          }}
+        />
+        <button onClick={() => mutation.mutate(Number(val))} disabled={mutation.isPending} className="p-1 rounded text-emerald-600 hover:bg-emerald-50">
+          {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+        </button>
+        <button onClick={() => setEditing(false)} className="p-1 rounded text-red-400 hover:bg-red-50"><X className="w-3.5 h-3.5" /></button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setVal((product.price || 0).toFixed(2)); setEditing(true); }}
+      className="flex items-center justify-center gap-1 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 rounded-lg px-2 py-1 group"
+      title="Edit retailer price"
+    >
+      ${(product.price || 0).toFixed(2)}
+      <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+    </button>
+  );
+}
+
 export default function InventoryManagerPanel({ storeId }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -89,7 +141,7 @@ export default function InventoryManagerPanel({ storeId }) {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, in_stock }) => base44.entities.Product.update(id, { in_stock }),
+    mutationFn: ({ id, in_stock }) => base44.functions.invoke('updateRetailerProduct', { product_id: id, in_stock }),
     onMutate: async ({ id, in_stock }) => {
       await queryClient.cancelQueries({ queryKey: ['store-products', storeId] });
       const prev = queryClient.getQueryData(['store-products', storeId]);
@@ -123,10 +175,8 @@ export default function InventoryManagerPanel({ storeId }) {
 
   return (
     <div className="space-y-4">
-      {/* Tip banner */}
-      <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
-        <Tag className="w-4 h-4 shrink-0 mt-0.5" />
-        <p>Click any <strong>price</strong> or <strong>quantity</strong> to edit it instantly. Changes go live immediately for customers.</p>
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <strong>Temporary manual pricing:</strong> click any green price to enter Beverage King’s correct shelf price. These changes are used by checkout immediately and are logged until the full Clover catalog/pricing sync is complete.
       </div>
 
       {/* Summary banners */}
@@ -177,7 +227,7 @@ export default function InventoryManagerPanel({ storeId }) {
           <div className="px-5 py-2.5 border-b bg-muted/30 grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Product</span>
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center w-20">Qty</span>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center w-24">Price</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center w-20">Price</span>
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center w-16">In Stock</span>
           </div>
           <div className="divide-y">
@@ -211,7 +261,7 @@ export default function InventoryManagerPanel({ storeId }) {
                 <div className="w-20 flex justify-center">
                   <QuantityEditor product={product} storeId={storeId} />
                 </div>
-                <div className="w-24 flex justify-center">
+                <div className="w-20 flex justify-center">
                   <PriceEditor product={product} storeId={storeId} />
                 </div>
                 <div className="w-16 flex justify-center">

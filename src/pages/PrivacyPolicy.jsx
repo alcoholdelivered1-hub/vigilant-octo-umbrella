@@ -51,12 +51,12 @@ export default function PrivacyPolicy() {
         <div className="text-center border-b pb-6 space-y-1">
           <p className="text-xs text-gray-500 uppercase tracking-widest">Data Protection</p>
           <h2 className="text-2xl font-bold text-gray-900 font-serif">PRIVACY POLICY</h2>
-          <p className="text-gray-600"><strong>Alcohol Delivered, LLC</strong> · Pine Bluff, Arkansas</p>
+          <p className="text-gray-600"><strong>Alcohol Delivered LLC</strong> · Pine Bluff, Arkansas</p>
           <p className="text-xs text-gray-500">Effective Date: January 1, 2026 · Last Updated: May 2026</p>
         </div>
 
         <Section title="1. INTRODUCTION">
-          <p>Alcohol Delivered, LLC ("we," "us," "our") is committed to protecting the privacy and security of your personal information. This Privacy Policy explains how we collect, use, share, and protect your data when you use our alcohol delivery platform in compliance with applicable federal and Arkansas state privacy laws.</p>
+          <p>Alcohol Delivered LLC ("we," "us," "our") is committed to protecting the privacy and security of your personal information. This Privacy Policy explains how we collect, use, share, and protect your data when you use our alcohol delivery platform in compliance with applicable federal and Arkansas state privacy laws.</p>
           <p className="mt-2">By using our platform, you consent to the practices described in this Privacy Policy.</p>
         </Section>
 
@@ -163,7 +163,7 @@ export default function PrivacyPolicy() {
         <Section title="11. CONTACT US">
           <p>For privacy-related questions, requests, or concerns:</p>
           <div className="mt-2 bg-gray-50 rounded-xl p-4">
-            <p className="font-semibold">Alcohol Delivered, LLC</p>
+            <p className="font-semibold">Alcohol Delivered LLC</p>
             <p>Privacy Officer</p>
             <p>Pine Bluff, Arkansas</p>
             <p>Phone: 870-209-9109</p>
@@ -172,7 +172,7 @@ export default function PrivacyPolicy() {
         </Section>
 
         <p className="text-center text-xs text-gray-400 pt-4 border-t">
-          © 2026 Alcohol Delivered, LLC · Pine Bluff, AR · Confidential — for authorized review only.
+          © 2026 Alcohol Delivered LLC · Pine Bluff, AR · Confidential — for authorized review only.
         </p>
       </div>
     </div>

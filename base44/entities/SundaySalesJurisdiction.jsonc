@@ -1,0 +1,95 @@
+{
+  "name": "SundaySalesJurisdiction",
+  "type": "object",
+  "properties": {
+    "jurisdiction_type": {
+      "type": "string",
+      "enum": [
+        "city",
+        "county"
+      ],
+      "description": "Level of the local option: a city ordinance or a county-wide vote"
+    },
+    "city": {
+      "type": "string",
+      "description": "City name for a city-level local option; empty for county-wide"
+    },
+    "county": {
+      "type": "string",
+      "description": "Arkansas county the local option applies to"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_abc_certification",
+        "certified",
+        "not_available"
+      ],
+      "default": "pending_abc_certification",
+      "description": "Only 'certified' with an effective_date allows Sunday sales; a passed election alone is never in effect until Arkansas ABC certifies it."
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date Sunday alcohol sales legally begin (Central Time); set only after Arkansas ABC certification"
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Arkansas ABC, official election commission, or major news source confirming the result and effective date"
+    },
+    "evidence_notes": {
+      "type": "string",
+      "description": "What the source says: vote result, certification status, effective date",
+      "rls": {
+        "read": {
+          "$or": [
+            {
+              "created_by_id": "{{user.id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "What last verified this record: admin email or the automated ABC check"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last automated Arkansas ABC check that covered this jurisdiction"
+    }
+  },
+  "required": [
+    "jurisdiction_type",
+    "county",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": null,
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

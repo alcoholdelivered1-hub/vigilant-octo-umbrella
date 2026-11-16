@@ -1,23 +1,11 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
-
-function buildRawEmail(to, subject, html, fromName) {
-  const fromHeader = `${fromName} <alcohol.delivered1@gmail.com>`;
-  const message = [
-    `From: ${fromHeader}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: text/html; charset=UTF-8`,
-    ``,
-    html,
-  ].join('\r\n');
-  return btoa(unescape(encodeURIComponent(message)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
     const { data } = await req.json();
 
     const managerEmail = Deno.env.get('STORE_MANAGER_EMAIL');
@@ -61,18 +49,11 @@ Deno.serve(async (req) => {
         </div>
       </div>`;
 
-    // Use Gmail to send — manager email may not be a registered app user
-    const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
-    const raw = buildRawEmail(managerEmail, `${alertLabel}: ${product.name}${product.brand ? ` (${product.brand})` : ''} — ${stockQty} unit${stockQty !== 1 ? 's' : ''} left at ${storeName}`, emailBody, 'Alcohol Delivered');
-    const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw }),
+    await base44.asServiceRole.integrations.Core.SendEmail({
+      to: managerEmail,
+      subject: `${alertLabel}: ${product.name}${product.brand ? ` (${product.brand})` : ''} — ${stockQty} unit${stockQty !== 1 ? 's' : ''} left at ${storeName}`,
+      body: emailBody,
     });
-    if (!gmailRes.ok) {
-      const errBody = await gmailRes.text();
-      throw new Error(`Gmail API error: ${gmailRes.status} — ${errBody}`);
-    }
 
     console.log(`Low stock alert sent for product ${product.name} (qty: ${stockQty}) to ${managerEmail}`);
     return Response.json({ success: true, product: product.name, stock_quantity: stockQty });

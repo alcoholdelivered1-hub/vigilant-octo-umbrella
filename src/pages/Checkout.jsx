@@ -1,36 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { getPublicStores } from '@/api/publicStores';
 import { useCart } from '@/hooks/useCart';
-import { APP_CONFIG, GIS_BOUNDARY } from '@/lib/config';
+import { APP_CONFIG } from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, ShieldCheck, MapPin, Minus, Plus, Trash2, Loader2, CheckCircle2, DollarSign, AlertCircle, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, MapPin, Minus, Plus, Trash2, Upload, Loader2, CheckCircle2, DollarSign, AlertCircle, Clock } from 'lucide-react';
 
-import { geocodeAddress, findZoneForLocation, isWithinZoneHours, getTodayHoursLabel } from '@/lib/zoneUtils';
+import { findZoneForLocation, isWithinZoneHours } from '@/lib/zoneUtils';
 import { calculateDistance, calculateMileageSurcharge } from '@/lib/distanceUtils';
-import { calculateAlcoholExciseTax } from '@/lib/arkansasTax';
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/AuthContext';
-import BirthdateInput from '@/components/checkout/BirthdateInput';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart, storeId, storeName, total, updateQuantity, clear } = useCart();
-  const { user } = useAuth();
-  const referralCreditCents = user?.referral_credits || 0;
-  const referralCreditDollars = referralCreditCents / 100;
   const [step, setStep] = useState(1); // 1=cart, 2=id_verify, 3=delivery_info, 4=payment
 
   const [loading, setLoading] = useState(false);
+  const [idFile, setIdFile] = useState(null);
+  const [idType, setIdType] = useState('');
   const [dob, setDob] = useState('');
-  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [idUploaded, setIdUploaded] = useState(false);
+  const [checkoutVerificationId, setCheckoutVerificationId] = useState('');
   const [form, setForm] = useState({
     customer_name: '',
-    customer_email: '',
     customer_phone: '',
     delivery_address: '',
     notes: '',
@@ -43,256 +41,147 @@ export default function Checkout() {
   const [zones, setZones] = useState([]);
   const [zoneLoading, setZoneLoading] = useState(false);
   const [zoneError, setZoneError] = useState('');
+  const [checkoutError, setCheckoutError] = useState('');
   const [distanceMiles, setDistanceMiles] = useState(0);
   const [storeCoords, setStoreCoords] = useState(null);
-  const [store, setStore] = useState(null);
+  const [storeTaxRate, setStoreTaxRate] = useState(0.085);
 
   // Fetch zones and store coords on mount
   useEffect(() => {
-    base44.entities.DeliveryZone.filter({ is_active: true }, 'name', 100).then(setZones).catch(() => {});
+    base44.entities.DeliveryZone.filter({ is_active: true }, 'name', 100).then(setZones).catch(() => setZoneError('Delivery areas could not be loaded. Please refresh and try again.'));
     if (storeId) {
-      base44.entities.Store.filter({ id: storeId }, 'name', 1).then((stores) => {
+      getPublicStores({ storeId }).then((stores) => {
         const s = stores[0];
-        if (s) {
-          setStore(s);
-          if (s.latitude && s.longitude) {
-            setStoreCoords({ lat: s.latitude, lon: s.longitude });
-          }
+        if (s?.latitude && s?.longitude) {
+          setStoreCoords({ lat: s.latitude, lon: s.longitude });
         }
+        if (typeof s?.sales_tax_rate === 'number') setStoreTaxRate(s.sales_tax_rate);
       }).catch(() => {});
     }
   }, [storeId]);
 
-  // Round each monetary component to cents BEFORE summing so the displayed
-  // line items always reconcile exactly with the displayed total (and match
-  // what Stripe charges). Summing raw floats then rounding the total is what
-  // caused penny-off discrepancies between subtotal/taxes and final total.
-  const roundCents = (n) => Math.round((Number(n) || 0) * 100) / 100;
   const MIN_ORDER = zone?.min_order_amount ?? 20.00;
-  const subtotal = roundCents(total);
-  const deliveryFee = roundCents(zone?.delivery_fee ?? 3.00);
-  const mileageSurcharge = roundCents(calculateMileageSurcharge(distanceMiles));
-  const serviceFee = roundCents(total * 0.25);
-  const taxRate = zone?.tax_rate ?? 0.065;
-  const tax = roundCents(total * taxRate);
-  const alcoholExciseTax = roundCents(calculateAlcoholExciseTax(cart));
-  const tipAmount = roundCents(tip);
-  const grandTotal = roundCents(subtotal + deliveryFee + mileageSurcharge + serviceFee + tax + alcoholExciseTax + tipAmount);
-  const appliedCredit = roundCents(Math.min(referralCreditDollars, grandTotal));
-  const finalTotal = roundCents(grandTotal - appliedCredit);
+  const deliveryFee = zone?.delivery_fee ?? 3.00;
+  const mileageSurcharge = calculateMileageSurcharge(distanceMiles);
+  // The customer pays the 25% service fee on merchandise.
+  const serviceFee = Number((total * 0.25).toFixed(2));
+  const appSupportFee = Number((total * 0.04).toFixed(2));
+  const taxRate = storeTaxRate;
+  const tax = Number((total * taxRate).toFixed(2));
+  const grandTotal = total + deliveryFee + mileageSurcharge + serviceFee + appSupportFee + tax + tip;
   const meetsMinimum = total >= MIN_ORDER;
 
-  const calcAge = (birthDate) => {
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-    return age;
-  };
-
-  const handleAgeConfirm = () => {
-    if (!dob) {
-      toast.error('Please enter your date of birth');
-      return;
-    }
-    const birthDate = new Date(dob);
-    if (isNaN(birthDate.getTime())) {
-      toast.error('Please enter a valid date of birth');
-      return;
-    }
-    if (calcAge(birthDate) < 21) {
-      toast.error('You must be 21 or older to purchase alcohol');
-      return;
-    }
-    if (!ageConfirmed) {
-      toast.error('Please confirm you understand the ID check requirement');
-      return;
-    }
-    setStep(3);
-  };
-
-  // Full delivery-eligibility verification before allowing checkout
-  const validateZone = async () => {
-    if (!form.delivery_address) return true;
-    setZoneLoading(true);
-    setZoneError('');
-
-    let coords = null;
-    let matched = null;
-    let rejectionReason = '';
-    let finalResult = 'rejected';
-
-    try {
-      coords = await geocodeAddress(form.delivery_address + ', AR');
-
-      if (!coords) {
-        rejectionReason = 'Invalid or incomplete address — could not be geocoded.';
-      } else {
-        matched = findZoneForLocation(coords.lat, coords.lon, zones);
-
-        if (!matched) {
-          rejectionReason = 'Address is outside all approved Alcohol Delivered service zones.';
-        } else if (!matched.is_wet) {
-          rejectionReason = 'Address is in a dry jurisdiction — alcohol delivery is not legal here.';
-        } else if (!isWithinZoneHours(matched)) {
-          rejectionReason = `Deliveries in ${matched.name} are currently outside legal hours. Today: ${getTodayHoursLabel(matched)}. Please order during those hours.`;
-        } else if (!store || store.compliance_status !== 'compliant' || !store.is_active) {
-          rejectionReason = 'Selected retailer is not licensed or approved for delivery.';
-        } else {
-          // All checks passed
-          setZone(matched);
-          finalResult = 'approved';
-          if (storeCoords) {
-            const dist = calculateDistance(storeCoords.lat, storeCoords.lon, coords.lat, coords.lon);
-            setDistanceMiles(dist);
-          }
-        }
-      }
-    } catch (err) {
-      rejectionReason = `Mapping service error: ${err.message || 'timeout or failure'}. Please try again.`;
-    }
-
-    // Securely log every eligibility check (fire-and-forget — never block checkout)
-    try {
-      const sessionId = 'CHK-' + Date.now().toString(36).toUpperCase();
-      base44.functions.invoke('logDeliveryEligibility', {
-        order_or_session_id: sessionId,
-        customer_latitude: coords?.lat || null,
-        customer_longitude: coords?.lon || null,
-        matched_municipality: matched?.name || '',
-        matched_county: matched?.county || '',
-        service_zone_result: matched ? `pass (${matched.name})` : 'fail (no matching zone)',
-        wet_jurisdiction_result: matched
-          ? (matched.is_wet ? 'pass (wet)' : 'fail (dry)')
-          : 'unverified',
-        retailer_eligibility_result: store
-          ? (store.compliance_status === 'compliant' && store.is_active
-              ? 'pass'
-              : `fail (${store.compliance_status || 'unknown status'})`)
-          : 'fail (no store selected)',
-        boundary_dataset_version: GIS_BOUNDARY.boundary_version,
-        final_result: finalResult,
-        rejection_reason: finalResult === 'approved' ? '' : rejectionReason,
-      }).catch(() => {});
-    } catch {}
-
-    if (finalResult === 'rejected') {
-      // Hours-specific errors get a more actionable message; everything else gets the generic block message
-      if (rejectionReason.includes('legal hours')) {
-        setZoneError(rejectionReason);
-      } else {
-        setZoneError('Delivery is not currently available at this address. Alcohol Delivered only serves approved locations within eligible wet jurisdictions.');
-      }
-      setZoneLoading(false);
-      return false;
-    }
-
-    setZoneLoading(false);
-    return true;
-  };
-
-  const handlePlaceOrder = async () => {
-    if (!form.customer_name || !form.delivery_address || !form.customer_phone || !form.customer_email) {
-      toast.error('Please fill in all required fields');
+  const handleIdUpload = async () => {
+    if (!idFile || !idType || !dob) {
+      toast.error('Please fill in all ID verification fields');
       return;
     }
 
-    // Block checkout if delivery eligibility has not been verified
-    if (!zone) {
-      toast.error('Please verify your delivery address before placing an order.');
-      setStep(3);
-      return;
-    }
-
-    // Guard against duplicate submission from repeated taps
-    if (loading) return;
     setLoading(true);
     try {
-      const orderNumber = 'SS-' + Date.now().toString(36).toUpperCase();
+      // ID photos are private; send only the private reference for verification.
+      const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file: idFile });
 
-      // Re-fetch live prices from the database so the customer is always
-      // charged the retailer's current price (not a stale cart snapshot).
-      const productIds = cart.map(i => i.product_id);
-      const liveProducts = await base44.entities.Product.filter({ id: { $in: productIds } }, 'name', 200);
-      const priceMap = {};
-      liveProducts.forEach(p => { priceMap[p.id] = p.price; });
-
-      let priceChanged = false;
-      const syncedCart = cart.map(item => {
-        const livePrice = priceMap[item.product_id];
-        if (livePrice != null && livePrice !== item.price) {
-          priceChanged = true;
-          return { ...item, price: livePrice, subtotal: livePrice * item.quantity };
-        }
-        return item;
+      // Run AI-based ID verification
+      const res = await base44.functions.invoke('verifyCustomerID', {
+        id_image_file_uri: file_uri,
+        declared_dob: dob,
+        id_type: idType,
       });
 
-      // If any price changed, notify the customer before charging
-      if (priceChanged) {
-        toast.info('Some prices were updated by the store. Your total has been adjusted.');
-      }
+      const result = res.data;
 
-      // Check stock availability before charging — prevents selling out-of-stock items
-      const stockIssues = [];
-      syncedCart.forEach(item => {
-        const product = liveProducts.find(p => p.id === item.product_id);
-        if (!product) {
-          stockIssues.push(`${item.product_name} is no longer available`);
-        } else if (!product.in_stock) {
-          stockIssues.push(`${item.product_name} is out of stock`);
-        } else if (product.stock_quantity != null && product.stock_quantity < item.quantity) {
-          stockIssues.push(`${item.product_name} — only ${product.stock_quantity} left (you have ${item.quantity} in cart)`);
-        }
-      });
-      if (stockIssues.length > 0) {
-        toast.error(`Unable to checkout: ${stockIssues.join('; ')}`);
+      if (!result.verified || !result.checkout_verification_id) {
+        toast.error(result.block_reason || 'ID verification failed. Please try again.');
         setLoading(false);
         return;
       }
 
-      // Recalculate subtotal from synced prices — round each component to
-      // cents before summing so the charged total matches the on-screen total.
-      const syncedSubtotal = roundCents(syncedCart.reduce((sum, i) => sum + i.subtotal, 0));
-      const syncedServiceFee = roundCents(syncedSubtotal * 0.25);
-      const syncedTax = roundCents(syncedSubtotal * taxRate);
-      const syncedAlcoholExciseTax = roundCents(calculateAlcoholExciseTax(syncedCart));
-      const syncedGrandTotal = roundCents(syncedSubtotal + deliveryFee + mileageSurcharge + syncedServiceFee + syncedTax + syncedAlcoholExciseTax + tipAmount);
+      setCheckoutVerificationId(result.checkout_verification_id);
+      setIdUploaded(true);
+      toast.success('ID verified successfully ✓');
+      setStep(3);
+      setCheckoutError('');
+    } catch (error) {
+      setCheckoutError(error.response?.data?.error || error.message || 'ID verification could not finish. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Geocode address and match zone when user proceeds from delivery info step
+  const validateZone = async () => {
+    setZoneLoading(true); setZoneError(''); setZone(null); setDistanceMiles(0);
+    try {
+      if (!form.delivery_address.trim()) throw new Error('Enter your full delivery address.');
+      if (!zones.length) throw new Error('Delivery areas are unavailable. Please refresh and try again.');
+      const { data } = await base44.functions.invoke('validateDeliveryArea', { store_id: storeId, delivery_address: form.delivery_address });
+      if (!data?.success) throw new Error(data?.error || 'The official ABC map could not confirm delivery eligibility.');
+      const coords = { lat: data.latitude, lon: data.longitude };
+      if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lon)) throw new Error('We could not verify that address. Check the street, city and ZIP code.');
+      const matched = findZoneForLocation(coords.lat, coords.lon, zones);
+      if (!matched) throw new Error('This address is outside our current legal delivery zones.');
+      if (!isWithinZoneHours(matched)) throw new Error(`Delivery hours for ${matched.name} are ${matched.legal_hours_start}–${matched.legal_hours_end}, Central Time.`);
+      const minimum = Number(matched.min_order_amount ?? 20);
+      if (total < minimum) throw new Error(`The minimum order for this delivery area is $${minimum.toFixed(2)}. Return to your cart to add more items.`);
+      setZone(matched);
+      if (storeCoords) setDistanceMiles(calculateDistance(storeCoords.lat, storeCoords.lon, coords.lat, coords.lon));
+      return true;
+    } catch (error) {
+      setZoneError(error.response?.data?.error || error.message || 'Unable to verify delivery availability. Please try again.');
+      return false;
+    } finally { setZoneLoading(false); }
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!form.customer_name || !form.delivery_address || !form.customer_phone) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (!zone || !checkoutVerificationId || !meetsMinimum) {
+      setCheckoutError('Complete ID and delivery-address verification before payment.');
+      return;
+    }
+    setCheckoutError('');
+    const isFramed = window.self !== window.top;
+    const checkoutTab = isFramed ? window.open('', '_blank') : null;
+    if (isFramed && !checkoutTab) { toast.error('Allow popups to continue to checkout.'); return; }
+    if (checkoutTab) checkoutTab.opener = null;
+    setLoading(true);
+    try {
+      const orderNumber = 'SS-' + Date.now().toString(36).toUpperCase();
 
       // Pass ALL order data to Stripe metadata — order is only created in DB after payment succeeds (via webhook)
       const res = await base44.functions.invoke('createStripeCheckout', {
-        referral_credit_cents: referralCreditCents,
         order_number: orderNumber,
-        items: syncedCart,
-        subtotal: parseFloat(syncedSubtotal.toFixed(2)),
+        items: cart,
         delivery_fee: parseFloat(deliveryFee.toFixed(2)),
         mileage_surcharge: parseFloat(mileageSurcharge.toFixed(2)),
         distance_miles: parseFloat(distanceMiles.toFixed(2)),
-        service_fee: parseFloat(syncedServiceFee.toFixed(2)),
-        tax: parseFloat(syncedTax.toFixed(2)),
-        alcohol_excise_tax: parseFloat(syncedAlcoholExciseTax.toFixed(2)),
-        tax_rate: taxRate,
+        service_fee: parseFloat(serviceFee.toFixed(2)),
+        app_support_fee: parseFloat(appSupportFee.toFixed(2)),
+        tax: parseFloat(tax.toFixed(2)),
         tip: parseFloat(tip.toFixed(2)),
         store_id: storeId,
         store_name: storeName,
-        total: parseFloat(syncedGrandTotal.toFixed(2)),
+        total: parseFloat(grandTotal.toFixed(2)),
         customer_name: form.customer_name,
-        customer_email: form.customer_email,
         customer_phone: form.customer_phone,
         delivery_address: form.delivery_address,
         notes: form.notes,
         date_of_birth: dob,
+        checkout_verification_id: checkoutVerificationId,
         is_in_legal_zone: !!zone,
       });
 
-      if (res.data?.url) {
-        clear();
-        window.location.href = res.data.url;
-      } else {
-        toast.error('Failed to create payment session. Please try again.');
-        setLoading(false);
-      }
-    } catch (err) {
-      toast.error(err?.response?.data?.error || err?.message || 'Something went wrong. Please try again.');
+      if (!res.data?.url) throw new Error('Failed to create payment session. Please try again.');
+      if (checkoutTab) checkoutTab.location.replace(res.data.url);
+      else window.location.assign(res.data.url);
+    } catch (error) {
+      checkoutTab?.close();
+      setCheckoutError(error.response?.data?.error || error.message || 'Payment is not available yet.');
+    } finally {
       setLoading(false);
     }
   };
@@ -339,7 +228,7 @@ export default function Checkout() {
 
       {/* Steps */}
       <div className="flex items-center gap-1 sm:gap-3 mb-8">
-        {[{ n: 1, label: 'Cart' }, { n: 2, label: 'Age Check' }, { n: 3, label: 'Delivery' }, { n: 4, label: 'Pay' }].map((s, i) => (
+        {[{ n: 1, label: 'Cart' }, { n: 2, label: 'Verify ID' }, { n: 3, label: 'Delivery' }, { n: 4, label: 'Pay' }].map((s, i) => (
           <React.Fragment key={s.n}>
             {i > 0 && <div className={`flex-1 h-0.5 ${step >= s.n ? 'bg-primary' : 'bg-muted'}`} />}
             <div className={`flex items-center gap-1.5 ${step >= s.n ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -352,6 +241,7 @@ export default function Checkout() {
         ))}
       </div>
 
+      {checkoutError && <p role="alert" className="mb-6 rounded-xl border border-destructive p-4 text-sm text-destructive">{checkoutError}</p>}
       {/* Step 1: Cart Review */}
       {step === 1 && (
         <div className="space-y-6">
@@ -362,20 +252,17 @@ export default function Checkout() {
                 <div key={item.product_id} className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className="font-medium text-sm">{item.product_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.pack_size && item.pack_size !== 'Single' && <span className="text-primary font-medium">{item.pack_size} · </span>}
-                      ${item.price.toFixed(2)} each
-                    </p>
+                    <p className="text-xs text-muted-foreground">${item.price.toFixed(2)} each</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="icon" variant="outline" className="w-7 h-7 min-h-[44px] min-w-[44px]" onClick={() => updateQuantity(item.product_id, item.quantity - 1)}>
+                    <Button size="icon" variant="outline" className="w-11 h-11" aria-label={`Decrease ${item.product_name} quantity`} onClick={() => updateQuantity(item.product_id, item.quantity - 1)}>
                       <Minus className="w-3 h-3" />
                     </Button>
                     <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
-                    <Button size="icon" variant="outline" className="w-7 h-7 min-h-[44px] min-w-[44px]" onClick={() => updateQuantity(item.product_id, item.quantity + 1)}>
+                    <Button size="icon" variant="outline" className="w-11 h-11" aria-label={`Increase ${item.product_name} quantity`} onClick={() => updateQuantity(item.product_id, item.quantity + 1)}>
                       <Plus className="w-3 h-3" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="w-7 h-7 min-h-[44px] min-w-[44px] text-destructive" onClick={() => updateQuantity(item.product_id, 0)}>
+                    <Button size="icon" variant="ghost" className="w-11 h-11 text-destructive" aria-label={`Remove ${item.product_name} from cart`} onClick={() => updateQuantity(item.product_id, 0)}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
@@ -411,7 +298,7 @@ export default function Checkout() {
                   onChange={(e) => {
                     setCustomTip(e.target.value);
                     const val = parseFloat(e.target.value);
-                    setTip(isNaN(val) ? 0 : val);
+                    setTip(Number((Number.isFinite(val) ? Math.min(100, Math.max(0, val)) : 0).toFixed(2)));
                   }}
                 />
               </div>
@@ -419,7 +306,7 @@ export default function Checkout() {
 
             <Separator className="my-4" />
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${total.toFixed(2)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>${deliveryFee.toFixed(2)}</span></div>
               {mileageSurcharge > 0 && (
                 <div className="flex justify-between text-amber-700 font-medium">
@@ -428,97 +315,70 @@ export default function Checkout() {
                 </div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Service Fee (25%)</span><span>${serviceFee.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Sales Tax ({(taxRate * 100).toFixed(2)}%)</span><span>${tax.toFixed(2)}</span></div>
-              {alcoholExciseTax > 0 && (
-                <div className="flex justify-between"><span className="text-muted-foreground">AR Alcohol Excise Tax</span><span>${alcoholExciseTax.toFixed(2)}</span></div>
-              )}
-              {tip > 0 && <div className="flex justify-between text-emerald-700 font-medium"><span>Driver Tip 💵</span><span>+${tipAmount.toFixed(2)}</span></div>}
-              {appliedCredit > 0 && (
-                <div className="flex justify-between text-emerald-700 font-medium">
-                  <span className="flex items-center gap-1">🎁 Referral Credit</span>
-                  <span>-${appliedCredit.toFixed(2)}</span>
-                </div>
-              )}
+              <div className="flex justify-between"><span className="text-muted-foreground">App Support Fee (4%)</span><span>${appSupportFee.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Estimated Sales Tax ({(taxRate * 100).toFixed(1)}%)</span><span>${tax.toFixed(2)}</span></div>
+              {tip > 0 && <div className="flex justify-between text-emerald-700 font-medium"><span>Driver Tip 💵</span><span>+${tip.toFixed(2)}</span></div>}
               <Separator className="my-2" />
-              <div className="flex justify-between text-base font-bold">
-                <span>{appliedCredit > 0 ? 'Total Due' : 'Total'}</span>
-                <span>${finalTotal.toFixed(2)}</span>
-              </div>
+              <div className="flex justify-between text-base font-bold"><span>Total</span><span>${grandTotal.toFixed(2)}</span></div>
             </div>
           </div>
           {!meetsMinimum && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-2">
-              <p className="font-semibold flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4" /> ${(MIN_ORDER - total).toFixed(2)} more needed to reach the ${MIN_ORDER.toFixed(2)} minimum
-              </p>
-              <p className="text-xs text-amber-700">Use the + buttons above to add more of any item, or browse the store for more products.</p>
-              <Link to={`/stores/${storeId}`}>
-                <Button variant="outline" size="sm" className="mt-1 rounded-xl h-8 text-xs">
-                  <Plus className="w-3 h-3 mr-1" /> Browse Store for More Items
-                </Button>
-              </Link>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+              <p className="font-semibold">Minimum order: ${MIN_ORDER.toFixed(2)}</p>
+              <p className="text-xs text-amber-700 mt-1">Add ${(MIN_ORDER - total).toFixed(2)} more to proceed</p>
             </div>
           )}
           <Button onClick={() => setStep(2)} className="w-full h-12 rounded-xl text-base" disabled={!meetsMinimum}>
-            {meetsMinimum ? 'Continue to ID Verification' : `Need $${(MIN_ORDER - total).toFixed(2)} more`}
+            {meetsMinimum ? 'Continue to ID Verification' : `Add $${(MIN_ORDER - total).toFixed(2)} more`}
           </Button>
         </div>
       )}
 
-      {/* Step 2: Age Confirmation */}
+      {/* Step 2: ID Verification */}
       {step === 2 && (
         <div className="space-y-6">
           <div className="bg-card rounded-2xl border p-6 space-y-5">
             <div className="flex items-center gap-3">
               <ShieldCheck className="w-6 h-6 text-primary" />
               <div>
-                <h2 className="font-display text-xl font-semibold">Age Verification</h2>
-                <p className="text-sm text-muted-foreground">You must be 21 or older to purchase alcohol</p>
+                <h2 className="font-display text-xl font-semibold">Age Verification Required</h2>
+                <p className="text-sm text-muted-foreground">Arkansas law requires valid government-issued ID</p>
               </div>
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <BirthdateInput value={dob} onChange={setDob} />
-                {dob && calcAge(new Date(dob)) >= 21 && (
-                  <p className="text-xs text-emerald-600 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Age verified — you are {calcAge(new Date(dob))} years old.
+                <Label>ID Type</Label>
+                <Select value={idType} onValueChange={setIdType}>
+                  <SelectTrigger><SelectValue placeholder="Select ID type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="drivers_license">Driver's License</SelectItem>
+                    <SelectItem value="passport">Passport</SelectItem>
+                    <SelectItem value="state_id">State ID</SelectItem>
+                    <SelectItem value="military_id">Military ID</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Date of Birth</Label>
+                <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} max={new Date().toISOString().split('T')[0]} />
+              </div>
+              <div className="space-y-2">
+                <Label>Upload ID Photo</Label>
+                <div className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => document.getElementById('id-upload').click()}>
+                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {idFile ? idFile.name : 'Click to upload your ID'}
                   </p>
-                )}
-                {dob && calcAge(new Date(dob)) < 21 && (
-                  <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> You must be 21 or older to use this service.
-                  </p>
-                )}
+                </div>
+                <input id="id-upload" type="file" accept="image/*" className="hidden" onChange={(e) => setIdFile(e.target.files[0])} />
               </div>
             </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2 text-xs text-amber-900">
-              <p className="font-semibold flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4" /> ID Required at Delivery
-              </p>
-              <p>Your driver will inspect your valid government-issued photo ID at the time of delivery. The recipient must be 21 or older and must be the person who placed this order.</p>
-              <div className="border-t border-amber-200 pt-2 mt-2">
-                <p className="font-semibold">Delivery Refusal — No Refund</p>
-                <p>Delivery may be refused without a refund where legally permitted if the recipient is underage, cannot present valid ID, or appears visibly intoxicated. Contactless or unattended alcohol delivery is not permitted.</p>
-              </div>
-            </div>
-
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={ageConfirmed}
-                onChange={(e) => setAgeConfirmed(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-input"
-              />
-              <span className="text-sm leading-snug">
-                I confirm that I am 21 years of age or older and understand that my government-issued photo ID will be checked at delivery.
-              </span>
-            </label>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => setStep(1)} className="flex-1 h-12 rounded-xl">Back</Button>
-            <Button onClick={handleAgeConfirm} className="flex-1 h-12 rounded-xl">
-              <ShieldCheck className="w-4 h-4 mr-2" />Continue to Delivery
+            <Button onClick={handleIdUpload} className="flex-1 h-12 rounded-xl" disabled={loading}>
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Verifying ID…</> : <><ShieldCheck className="w-4 h-4 mr-2" />Verify & Continue</>}
             </Button>
           </div>
         </div>
@@ -532,7 +392,7 @@ export default function Checkout() {
               <MapPin className="w-6 h-6 text-primary" />
               <div>
                 <h2 className="font-display text-xl font-semibold">Delivery Information</h2>
-                <p className="text-sm text-muted-foreground">Delivery to Pine Bluff, AR area only</p>
+                <p className="text-sm text-muted-foreground">Eligible wet territory in the retailer county or an adjoining county, within our service area.</p>
               </div>
             </div>
             <div className="space-y-4">
@@ -541,19 +401,12 @@ export default function Checkout() {
                 <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Your full name" />
               </div>
               <div className="space-y-2">
-                <Label>Email *</Label>
-                <Input type="email" value={form.customer_email} onChange={(e) => setForm({ ...form, customer_email: e.target.value })} placeholder="you@example.com" />
-              </div>
-              <div className="space-y-2">
                 <Label>Phone Number *</Label>
                 <Input value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} placeholder="(870) 555-0123" />
               </div>
               <div className="space-y-2">
                 <Label>Delivery Address *</Label>
-                <Textarea value={form.delivery_address} onChange={(e) => setForm({ ...form, delivery_address: e.target.value })} placeholder="Full delivery address in Jefferson County, AR" />
-                <p className="text-xs text-muted-foreground italic">
-                  Delivery availability is determined by your address, participating retailer coverage, local jurisdiction requirements, and Alcohol Delivered's approved service zones.
-                </p>
+                <Textarea value={form.delivery_address} onChange={(e) => setForm({ ...form, delivery_address: e.target.value })} placeholder="Full street address, city and ZIP code in Arkansas" />
               </div>
               <div className="space-y-2">
                 <Label>Order Notes</Label>
@@ -574,21 +427,21 @@ export default function Checkout() {
               <p className="font-semibold flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Zone: {zone.name}</p>
               <div className="flex gap-4 text-xs text-blue-700">
                 <span><DollarSign className="w-3 h-3 inline" /> Delivery fee: ${zone.delivery_fee?.toFixed(2)}</span>
-                <span><Clock className="w-3 h-3 inline" /> Today's hours: {getTodayHoursLabel(zone)}</span>
+                <span><Clock className="w-3 h-3 inline" /> Hours: {zone.legal_hours_start} – {zone.legal_hours_end}</span>
               </div>
             </div>
           )}
 
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
             <div className="text-sm">
-              <p className="font-semibold text-blue-800">ID Check at Delivery</p>
-              <p className="text-blue-700">Your driver will inspect your government-issued photo ID at delivery. Please have your ID ready. Delivery will be refused if you cannot present valid ID or appear intoxicated.</p>
+              <p className="font-semibold text-emerald-800">ID Verified at Checkout</p>
+              <p className="text-emerald-700">Your driver will also verify your ID at delivery. Please have your ID ready.</p>
             </div>
           </div>
 
           <div className="bg-card rounded-2xl border p-4 text-sm space-y-1">
-            <div className="flex justify-between font-bold text-base"><span>{appliedCredit > 0 ? 'Total Due' : 'Order Total'}</span><span>${finalTotal.toFixed(2)}</span></div>
+            <div className="flex justify-between font-bold text-base"><span>Order Total</span><span>${grandTotal.toFixed(2)}</span></div>
           </div>
 
           <div className="flex gap-3">
@@ -596,7 +449,7 @@ export default function Checkout() {
             <Button
               onClick={async () => { const ok = await validateZone(); if (ok) setStep(4); }}
               className="flex-1 h-12 rounded-xl text-base"
-              disabled={!form.customer_name || !form.customer_email || !form.customer_phone || !form.delivery_address || zoneLoading}
+              disabled={!form.customer_name || !form.customer_phone || !form.delivery_address || zoneLoading}
             >
               {zoneLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Continue to Payment
@@ -613,13 +466,13 @@ export default function Checkout() {
               <DollarSign className="w-6 h-6 text-primary" />
               <div>
                 <h2 className="font-display text-xl font-semibold">Secure Payment</h2>
-                <p className="text-sm text-muted-foreground">Pay safely with your credit or debit card</p>
+                <p className="text-sm text-muted-foreground">{storeName} is the seller of record. Card checkout currently uses the retailer’s Stripe account. Clover Hosted Checkout is being prepared for participating stores.</p>
               </div>
             </div>
 
             {/* Order summary */}
             <div className="bg-muted/40 rounded-xl p-4 space-y-1 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${total.toFixed(2)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>${deliveryFee.toFixed(2)}</span></div>
               {mileageSurcharge > 0 && (
                 <div className="flex justify-between text-amber-700">
@@ -627,46 +480,26 @@ export default function Checkout() {
                   <span>+${mileageSurcharge.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between"><span className="text-muted-foreground">Service Fee</span><span>${serviceFee.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Sales Tax ({(taxRate * 100).toFixed(2)}%)</span><span>${tax.toFixed(2)}</span></div>
-              {alcoholExciseTax > 0 && (
-                <div className="flex justify-between"><span className="text-muted-foreground">AR Alcohol Excise Tax</span><span>${alcoholExciseTax.toFixed(2)}</span></div>
-              )}
-              {tip > 0 && <div className="flex justify-between text-emerald-700"><span>Driver Tip 💵</span><span>+${tipAmount.toFixed(2)}</span></div>}
-              {appliedCredit > 0 && (
-                <div className="flex justify-between text-emerald-700 font-medium">
-                  <span className="flex items-center gap-1">🎁 Referral Credit</span>
-                  <span>-${appliedCredit.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-base pt-1 border-t mt-1">
-                <span>{appliedCredit > 0 ? 'Total Due' : 'Total'}</span>
-                <span>${finalTotal.toFixed(2)}</span>
-              </div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Service Fee (25%)</span><span>${serviceFee.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">App Support Fee</span><span>${appSupportFee.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Estimated Sales Tax ({(taxRate * 100).toFixed(1)}%)</span><span>${tax.toFixed(2)}</span></div>
+              {tip > 0 && <div className="flex justify-between text-emerald-700"><span>Driver Tip 💵</span><span>+${tip.toFixed(2)}</span></div>}
+              <div className="flex justify-between font-bold text-base pt-1 border-t mt-1"><span>Total</span><span>${grandTotal.toFixed(2)}</span></div>
             </div>
 
             <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
               <ShieldCheck className="w-5 h-5 text-blue-600 flex-shrink-0" />
-              <p>Your payment is secured by Stripe. We never store your card details.</p>
+              <p>Your card details are handled by Stripe. Alcohol Delivered does not store your card number.</p>
             </div>
 
-            {/* Required legal notices */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2 text-xs text-amber-900">
-              <p className="font-semibold flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4" /> ID Required at Delivery
-              </p>
-              <p>A valid government-issued photo ID is required at the time of delivery. The recipient must be 21 years of age or older and must be the person who placed this order.</p>
-              <div className="border-t border-amber-200 pt-2 mt-2">
-                <p className="font-semibold">Delivery Refusal — No Refund</p>
-                <p>Delivery may be refused without a refund where legally permitted if the recipient is underage, cannot present valid ID, or appears visibly intoxicated. Unattended or contactless alcohol delivery is not permitted.</p>
-              </div>
-            </div>
-
-            {window.self !== window.top && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
-                ⚠️ Stripe checkout only works from the published app, not within the preview iframe. Please open the app in a new tab.
+            {storeId === '6a32d14d09b760f592dbf19e' && (
+              <div className="rounded-xl border p-4 space-y-2" role="status">
+                <p className="font-semibold text-sm">Clover online checkout — coming to Beverage King</p>
+                <p className="text-xs text-muted-foreground">Clover merchant approval, a 25% retailer commission agreement, secure payment confirmation and checkout testing are still required. Clover is not available to charge customers yet.</p>
+                <Button type="button" variant="outline" className="w-full" disabled>Pay using Clover — setup pending</Button>
               </div>
             )}
+
           </div>
 
           <div className="flex gap-3">
@@ -674,10 +507,10 @@ export default function Checkout() {
             <Button
               onClick={handlePlaceOrder}
               className="flex-1 h-12 rounded-xl text-base"
-              disabled={loading || window.self !== window.top}
+              disabled={loading || !checkoutVerificationId}
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-              Pay ${finalTotal.toFixed(2)} with Card
+              Pay ${grandTotal.toFixed(2)} with Card
             </Button>
           </div>
         </div>

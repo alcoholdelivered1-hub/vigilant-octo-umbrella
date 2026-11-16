@@ -41,8 +41,10 @@ Deno.serve(async (req) => {
       loyalty_points: (referrer.loyalty_points || 0) + 50,
     });
 
-    // Award credits to the new user (current user)
-    await base44.auth.updateMe({
+    // Award credits to the new user (current user).
+    // Written with the service role: credit and referral-attribution fields are locked
+    // against app-user writes so a user cannot grant themselves credits from the browser.
+    await base44.asServiceRole.entities.User.update(user.id, {
       referred_by_code: referral_code,
       referred_by_email: referrer.email,
       referral_credits: (user.referral_credits || 0) + REFERRED_CREDITS,

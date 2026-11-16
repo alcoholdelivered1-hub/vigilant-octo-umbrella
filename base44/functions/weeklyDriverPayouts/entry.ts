@@ -2,7 +2,7 @@
  * Scheduled weekly function (runs every Monday 6 AM CT) that:
  *  1. Finds all delivered orders from the previous Mon–Sun pay period
  *  2. Groups them by driver
- *  3. Calculates earnings: (deliveries × $4.75) + tips + mileage surcharge ($1/mile over 7 miles, kept entirely by driver)
+ *  3. Calculates earnings: (deliveries × $3.00) + tips + mileage surcharge ($1/mile over 7 miles, kept entirely by driver)
  *  4. Creates a Stripe Connect transfer to each driver's Express account
  *  5. Saves a DriverPayout record for every driver (paid / skipped / failed)
  *
@@ -10,23 +10,15 @@
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import Stripe from 'npm:stripe@17.4.0';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
-const DELIVERY_FEE_CENTS = 475; // $4.75
+const DELIVERY_FEE_CENTS = 300; // $3.00
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-
-    // Auth: must be authenticated via platform (admin user or automation)
-    const authenticated = await base44.auth.isAuthenticated().catch(() => false);
-    if (!authenticated) {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
-    // If a user is present, they must be an admin (automations have no user)
-    const currentUser = await base44.auth.me().catch(() => null);
-    if (currentUser && currentUser.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 
@@ -91,7 +83,7 @@ Deno.serve(async (req) => {
       const connectAccountId = driverUser?.stripe_connect_account_id;
 
       const deliveryCount = orders.length;
-      const deliveryFees = deliveryCount * 4.75;
+      const deliveryFees = deliveryCount * 3.00;
       const tips = orders.reduce((s, o) => s + (o.tip || 0), 0);
       // Mileage surcharge: $1/mile over 7 miles — kept entirely by the driver
       const mileageSurcharge = orders.reduce((s, o) => s + (o.mileage_surcharge || 0), 0);

@@ -1,0 +1,41 @@
+{
+  "name": "Auto Launch Stores After Onboarding Updates",
+  "description": "Recheck all retailers awaiting launch as onboarding agreement, catalog and sandbox order verification are completed. Each store must pass its own required launch checks.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerOnboarding",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.agreement_signed == true }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_launch_stores_after_onboarding_updates",
+      "version": "1.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_and_launch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "retailerGoLive",
+            "args": {
+              "action": "auto_launch"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check and launch stores",
+            "description": "Preserve every required launch check"
+          }
+        }
+      }
+    ]
+  }
+}

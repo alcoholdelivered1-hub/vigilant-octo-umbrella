@@ -1,0 +1,4 @@
+{
+  "name": "exportWeeklyReportToSheets",
+  "entry": "entry.ts"
+}

@@ -1,0 +1,104 @@
+{
+  "name": "RetailerSetupSubmission",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "step": {
+      "type": "string",
+      "enum": [
+        "business",
+        "license",
+        "operations",
+        "pos",
+        "inventory",
+        "device",
+        "launch"
+      ]
+    },
+    "version": {
+      "type": "number"
+    },
+    "revision": {
+      "type": "number",
+      "default": 0
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "needs_correction",
+        "approved"
+      ]
+    },
+    "submitted_at": {
+      "type": "string"
+    },
+    "submitted_by": {
+      "type": "string"
+    },
+    "edited_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "review_note": {
+      "type": "string"
+    },
+    "document_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "supersedes_id": {
+      "type": "string"
+    },
+    "mapped_at": {
+      "type": "string"
+    },
+    "submission_hash": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "step",
+    "version",
+    "revision",
+    "fields",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

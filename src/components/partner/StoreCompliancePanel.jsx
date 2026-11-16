@@ -3,18 +3,26 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { differenceInDays, parseISO } from 'date-fns';
 import {
-  CheckCircle2, XCircle, AlertTriangle, FileText, Loader2, Save, Edit2
+  CheckCircle2, XCircle, AlertTriangle, FileText, Loader2, Save, Edit2, ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import LicenseFields from '@/components/admin/LicenseFields';
 
 const EXPIRY_WARN_DAYS = 30;
 
 function getLicenseStatus(store) {
   const issues = [];
   if (!store.license_number?.trim()) issues.push({ type: 'error', label: 'Missing license number' });
+  if (store.license_status === 'pending' || /pending/i.test(store.license_number || '')) issues.push({ type: 'warning', label: 'License PENDING verification' });
+  if (!store.license_expiration_date) issues.push({ type: 'warning', label: 'ABC license expiration date missing' });
+  if (store.license_expiration_date) {
+    const daysLeft = differenceInDays(parseISO(store.license_expiration_date), new Date(new Date().setHours(0, 0, 0, 0)));
+    if (daysLeft < 0) issues.push({ type: 'error', label: 'ABC retail license expired' });
+    else if (daysLeft <= EXPIRY_WARN_DAYS) issues.push({ type: 'warning', label: `ABC license expires in ${daysLeft} days` });
+  }
   if (!store.email?.trim())          issues.push({ type: 'error', label: 'No contact email on file' });
   if (!store.phone?.trim())          issues.push({ type: 'warning', label: 'No phone number on file' });
   if (!store.address?.trim())        issues.push({ type: 'error', label: 'Missing physical address' });
@@ -53,9 +61,17 @@ export default function StoreCompliancePanel({ storeId }) {
     onSuccess: (s) => { if (s && !form) setForm(extractForm(s)); },
   });
 
+  const { data: permits } = useQuery({
+    queryKey: ['store-permits', store?.email],
+    queryFn: () => base44.entities.BusinessPermit.filter({ store_email: store.email }, '-expiration_date', 50),
+    enabled: !!store?.email,
+  });
+
   function extractForm(s) {
     return {
       license_number: s.license_number || '',
+      license_status: s.license_status || (/pending/i.test(s.license_number || '') ? 'pending' : 'unknown'),
+      license_expiration_date: s.license_expiration_date || '',
       email: s.email || '',
       phone: s.phone || '',
       address: s.address || '',
@@ -71,6 +87,7 @@ export default function StoreCompliancePanel({ storeId }) {
     mutationFn: (data) => base44.entities.Store.update(storeId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['store-detail', storeId] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-hub-stores'] });
       setEditing(false);
       toast.success('License information updated');
     },
@@ -92,7 +109,7 @@ export default function StoreCompliancePanel({ storeId }) {
   const cfg = STATUS_CONFIG[audit.status];
   const Icon = cfg.icon;
 
-  const handleSave = () => mutation.mutate(currentForm);
+  const handleSave = () => mutation.mutate({ ...currentForm, license_expiration_date: currentForm.license_expiration_date || null });
 
   const field = (label, key, placeholder = '', type = 'text') => (
     <div className="space-y-1.5">
@@ -118,7 +135,7 @@ export default function StoreCompliancePanel({ storeId }) {
           <p className={`font-bold text-lg ${cfg.text}`}>{cfg.label}</p>
           <p className="text-sm text-muted-foreground mt-0.5">{store.name}</p>
           {audit.issues.length === 0 ? (
-            <p className="text-sm text-emerald-700 mt-2">All license and contact fields are complete. You are in good standing.</p>
+            <p className="text-sm text-emerald-700 mt-2">Saved license and contact fields are complete. Current evidence, administrator review and launch checks are still required.</p>
           ) : (
             <ul className="mt-3 space-y-1.5">
               {audit.issues.map((issue, i) => (
@@ -142,9 +159,7 @@ export default function StoreCompliancePanel({ storeId }) {
             <h3 className="font-semibold text-sm">License & Contact Information</h3>
           </div>
           {!editing ? (
-            <Button size="sm" variant="outline" onClick={() => { setForm(extractForm(store)); setEditing(true); }} className="gap-2">
-              <Edit2 className="w-3.5 h-3.5" /> Edit
-            </Button>
+            <Button size="sm" variant="outline" asChild className="gap-2"><a href={`/onboarding?store_id=${encodeURIComponent(storeId)}`}><Edit2 className="w-3.5 h-3.5" /> Edit and submit for review</a></Button>
           ) : (
             <div className="flex gap-2">
               <Button size="sm" variant="ghost" onClick={() => { setForm(extractForm(store)); setEditing(false); }}>Cancel</Button>
@@ -158,6 +173,7 @@ export default function StoreCompliancePanel({ storeId }) {
 
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {field('Arkansas ABC License Number *', 'license_number', 'e.g. LR-12345')}
+          <LicenseFields form={currentForm} disabled={!editing} onChange={(key, value) => setForm(f => ({ ...(f || currentForm), [key]: value }))} />
           {field('Contact Email *', 'email', 'store@example.com', 'email')}
           {field('Phone Number', 'phone', '(870) 555-0100', 'tel')}
           {field('Street Address *', 'address', '123 Main St')}
@@ -175,6 +191,58 @@ export default function StoreCompliancePanel({ storeId }) {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Permits & Licenses on file */}
+      <div className="bg-card rounded-2xl border">
+        <div className="px-5 py-4 border-b flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+          <h3 className="font-semibold text-sm">Permits & Licenses on File</h3>
+        </div>
+        <div className="p-5">
+          {permits === undefined ? (
+            <div className="flex items-center text-sm text-muted-foreground gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading permits…
+            </div>
+          ) : permits.filter((p) => p.permit_type !== 'arkansas_abc_third_party_delivery').length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No permits are linked to your store yet. If you believe this is an error, contact our compliance team.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {permits.filter((p) => p.permit_type !== 'arkansas_abc_third_party_delivery').map((p) => {
+                const expired = p.status === 'expired' || (p.expiration_date && differenceInDays(parseISO(p.expiration_date), new Date()) < 0);
+                const typeLabel = p.permit_type === 'city_business_license' ? 'City Business License' : p.permit_type;
+                return (
+                  <li key={p.id} className="rounded-xl border p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">{typeLabel}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{p.legal_name}{p.permittee_name ? ` · ${p.permittee_name}` : ''}</p>
+                      </div>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${expired ? 'bg-red-100 text-red-700' : p.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {expired ? 'Expired' : p.status?.charAt(0).toUpperCase() + p.status?.slice(1)}
+                      </span>
+                    </div>
+                    <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                      {p.permit_number && <div className="flex gap-2"><dt className="text-muted-foreground">Permit #</dt><dd className="font-medium">{p.permit_number}</dd></div>}
+                      {p.issuing_authority && <div className="flex gap-2"><dt className="text-muted-foreground">Issued by</dt><dd className="font-medium">{p.issuing_authority}</dd></div>}
+                      {p.issue_date && <div className="flex gap-2"><dt className="text-muted-foreground">Issued</dt><dd className="font-medium">{p.issue_date}</dd></div>}
+                      {p.expiration_date && <div className="flex gap-2"><dt className="text-muted-foreground">Expires</dt><dd className="font-medium">{p.expiration_date}</dd></div>}
+                    </dl>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {p.document_on_file ? 'Document on file with Alcohol Delivered.' : 'No document on file.'}
+                      {p.verification_notes ? ` ${p.verification_notes}` : ''}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="text-xs text-muted-foreground mt-4">
+            Permits are verified and managed by our compliance team. Need a copy of your permit or a correction? Reply to your onboarding email or contact alcohol.delivered1@gmail.com.
+          </p>
+        </div>
       </div>
     </div>
   );

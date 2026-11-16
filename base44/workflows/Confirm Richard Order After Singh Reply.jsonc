@@ -1,0 +1,41 @@
+{
+  "name": "Confirm Richard Order After Singh Reply",
+  "description": "Records Mr. Singh's email confirmation, alerts Alcohol Delivered, and creates Richard Campbell's paid order in Beverage King's Clover account only after Stripe and Clover pass safety checks.",
+  "trigger": {
+    "condition": "${ .trigger.data.has_new_messages == true }",
+    "config": {
+      "trigger_type": "connector",
+      "events": [
+        "mailbox"
+      ],
+      "integration_type": "gmail",
+      "resource_id": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "confirm_richard_order_after_singh_reply",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "process_singh_reply": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processSinghStripeReply",
+            "args": {
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Process Mr. Singh reply",
+            "description": "Confirm, alert, and safely create Clover order"
+          }
+        }
+      }
+    ]
+  }
+}

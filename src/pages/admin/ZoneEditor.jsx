@@ -4,13 +4,12 @@ import { base44 } from '@/api/base44Client';
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Plus, Pencil, Trash2, CheckCircle2, Clock, Loader2, ToggleLeft, ToggleRight, ExternalLink, Info, ShieldCheck, Calendar } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, CheckCircle2, Clock, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { GIS_BOUNDARY } from '@/lib/config';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -25,13 +24,8 @@ const ZONE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#ec
 const EMPTY_FORM = {
   name: '', county: '', is_wet: true, is_active: true,
   center_latitude: '', center_longitude: '', radius_miles: '',
-  legal_hours_start: '07:00', legal_hours_end: '01:00',
-  saturday_hours_start: '07:00', saturday_hours_end: '00:00',
-  sunday_closed: true, sunday_hours_start: '', sunday_hours_end: '',
+  legal_hours_start: '07:00', legal_hours_end: '02:00',
   delivery_fee: '3.00', min_order_amount: '20.00',
-  zone_status: 'active', wet_jurisdiction_verified: false,
-  compliance_last_reviewed: '', boundary_version: GIS_BOUNDARY.boundary_version,
-  admin_notes: '',
 };
 
 function MapClickHandler({ onPick }) {
@@ -76,33 +70,12 @@ function ZoneForm({ initial, onSave, onCancel, saving }) {
           <Input type="number" value={form.min_order_amount} onChange={e => set('min_order_amount', e.target.value)} placeholder="20.00" min="0" step="1" />
         </div>
         <div className="space-y-1.5">
-          <Label>Mon–Fri Start</Label>
+          <Label>Hours Start</Label>
           <Input type="time" value={form.legal_hours_start} onChange={e => set('legal_hours_start', e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label>Mon–Fri End</Label>
+          <Label>Hours End</Label>
           <Input type="time" value={form.legal_hours_end} onChange={e => set('legal_hours_end', e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Sat Start</Label>
-          <Input type="time" value={form.saturday_hours_start || ''} onChange={e => set('saturday_hours_start', e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Sat End</Label>
-          <Input type="time" value={form.saturday_hours_end || ''} onChange={e => set('saturday_hours_end', e.target.value)} />
-        </div>
-        <div className="col-span-2 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
-            <input type="checkbox" checked={form.sunday_closed} onChange={e => set('sunday_closed', e.target.checked)} className="w-4 h-4 rounded" />
-            Closed Sundays
-          </label>
-          {!form.sunday_closed && (
-            <div className="flex items-center gap-2">
-              <Input type="time" value={form.sunday_hours_start || ''} onChange={e => set('sunday_hours_start', e.target.value)} className="w-28" />
-              <span className="text-xs text-muted-foreground">to</span>
-              <Input type="time" value={form.sunday_hours_end || ''} onChange={e => set('sunday_hours_end', e.target.value)} className="w-28" />
-            </div>
-          )}
         </div>
         <div className="col-span-2 flex items-center gap-4">
           <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -113,33 +86,6 @@ function ZoneForm({ initial, onSave, onCancel, saving }) {
             <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="w-4 h-4 rounded" />
             Active
           </label>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Zone Status</Label>
-          <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.zone_status || 'active'} onChange={e => set('zone_status', e.target.value)}>
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Wet Jurisdiction Verified (ABC)</Label>
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
-            <input type="checkbox" checked={form.wet_jurisdiction_verified || false} onChange={e => set('wet_jurisdiction_verified', e.target.checked)} className="w-4 h-4 rounded" />
-            Independently verified
-          </label>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Compliance Last Reviewed</Label>
-          <Input type="date" value={form.compliance_last_reviewed || ''} onChange={e => set('compliance_last_reviewed', e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Boundary Version</Label>
-          <Input value={form.boundary_version || GIS_BOUNDARY.boundary_version} onChange={e => set('boundary_version', e.target.value)} />
-        </div>
-        <div className="space-y-1.5 col-span-2">
-          <Label>Admin Notes</Label>
-          <textarea className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" value={form.admin_notes || ''} onChange={e => set('admin_notes', e.target.value)} placeholder="Internal compliance or boundary notes" />
         </div>
       </div>
 
@@ -153,7 +99,7 @@ function ZoneForm({ initial, onSave, onCancel, saving }) {
             style={{ width: '100%', height: '100%' }}
             zoomControl={false}
           >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution="&copy; OpenStreetMap" />
             <MapClickHandler onPick={handleMapPick} />
             {centerPos && (
               <>
@@ -257,34 +203,6 @@ export default function ZoneEditor() {
         </Button>
       </div>
 
-      {/* Arkansas GIS Boundary Reference */}
-      <div className="bg-card border rounded-2xl p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="font-semibold text-sm">{GIS_BOUNDARY.source_name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Dataset last updated: {GIS_BOUNDARY.last_updated} · Version {GIS_BOUNDARY.boundary_version}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <a href={GIS_BOUNDARY.dataset_url} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm" className="h-7 text-xs"><ExternalLink className="w-3 h-3 mr-1" />Boundary Dataset</Button>
-              </a>
-              <a href={GIS_BOUNDARY.check_my_city_url} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm" className="h-7 text-xs"><ExternalLink className="w-3 h-3 mr-1" />Check My City</Button>
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-xs text-blue-800">
-          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <p>Municipal boundary verification and wet/dry eligibility are separate checks. Being inside a city boundary does not automatically approve delivery.</p>
-        </div>
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-800">
-          <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <p className="font-medium">Humphrey Notice:</p>
-          <p className="ml-1">{GIS_BOUNDARY.humphrey_notice}</p>
-        </div>
-      </div>
-
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left: zone list */}
         <div className="space-y-3">
@@ -320,14 +238,6 @@ export default function ZoneEditor() {
                       ) : (
                         <Badge variant="outline" className="text-[10px] text-muted-foreground">Inactive</Badge>
                       )}
-                      {zone.zone_status && zone.zone_status !== 'active' && (
-                        <Badge variant="outline" className="text-[10px] bg-amber-50 border-amber-200 text-amber-700">{zone.zone_status}</Badge>
-                      )}
-                      {zone.wet_jurisdiction_verified ? (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-200 text-emerald-700">Wet ✓</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px] bg-amber-50 border-amber-200 text-amber-700">Wet ?</Badge>
-                      )}
                     </div>
                   </div>
 
@@ -346,12 +256,11 @@ export default function ZoneEditor() {
                     </div>
                   </div>
 
-                  <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Mon–Fri: {zone.legal_hours_start || '—'} – {zone.legal_hours_end || '—'}</p>
-                    <p className="pl-4">Sat: {zone.saturday_hours_start || zone.legal_hours_start || '—'} – {zone.saturday_hours_end || zone.legal_hours_end || '—'} · Sun: {zone.sunday_closed ? 'Closed' : `${zone.sunday_hours_start || '—'}–${zone.sunday_hours_end || '—'}`}</p>
-                    <p className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Reviewed: {zone.compliance_last_reviewed || 'Never'}</p>
-                    <p className="pl-4">Boundary: {zone.boundary_version || GIS_BOUNDARY.boundary_version}</p>
-                  </div>
+                  {(zone.legal_hours_start || zone.legal_hours_end) && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {zone.legal_hours_start} – {zone.legal_hours_end}
+                    </p>
+                  )}
 
                   <div className="flex gap-2 pt-1">
                     <Button
@@ -402,7 +311,7 @@ export default function ZoneEditor() {
                   key={selectedZone?.id || 'overview'}
                   style={{ width: '100%', height: '100%' }}
                 >
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                  <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution="&copy; OpenStreetMap" />
                   {zones.filter(z => z.center_latitude && z.center_longitude && z.radius_miles).map((zone, i) => {
                     const color = ZONE_COLORS[i % ZONE_COLORS.length];
                     const isSelected = selectedZone?.id === zone.id;

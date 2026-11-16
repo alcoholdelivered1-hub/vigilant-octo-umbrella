@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 // Category mapping from CSV categories to our entity enum
 const CATEGORY_MAP = {
@@ -31,6 +32,8 @@ function parseCSV(text) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const csvUrl = Deno.env.get('PRODUCTS_CSV_URL');
     if (!csvUrl) {
@@ -56,10 +59,8 @@ Deno.serve(async (req) => {
     const csvText = await csvRes.text();
     const products = parseCSV(csvText);
 
-    // 2. Get all active stores — the CSV is a shared master catalog, so it
-    // seeds every active store (the previous Jefferson-only filter kept the
-    // 14 non-Jefferson retailers from ever receiving inventory via this sync).
-    const stores = await base44.asServiceRole.entities.Store.filter({ is_active: true });
+    // 2. Get all stores in Jefferson County
+    const stores = await base44.asServiceRole.entities.Store.filter({ county: 'Jefferson', is_active: true });
     if (!stores.length) {
       return Response.json({ error: 'No active stores found' }, { status: 404 });
     }
@@ -67,10 +68,10 @@ Deno.serve(async (req) => {
     // 3. Get existing products for all stores
     const existingProducts = await base44.asServiceRole.entities.Product.list();
 
-    // Build a lookup: "store_id|product_name|brand|pack_size" -> product record
+    // Build a lookup: "store_id|product_name|brand" -> product record
     const existingMap = {};
     for (const p of existingProducts) {
-      const key = `${p.store_id}|${p.name}|${p.brand}|${p.pack_size || 'Single'}`;
+      const key = `${p.store_id}|${p.name}|${p.brand}`;
       existingMap[key] = p;
     }
 
@@ -80,8 +81,7 @@ Deno.serve(async (req) => {
       for (const row of products) {
         const category = CATEGORY_MAP[row.category?.toLowerCase()] || 'spirits';
         const price = parseFloat(row.avg_price) || 0;
-        const packSize = row.pack_size || 'Single';
-        const key = `${store.id}|${row.product_name}|${row.brand}|${packSize}`;
+        const key = `${store.id}|${row.product_name}|${row.brand}`;
 
         const stockQty = row.stock_quantity !== undefined && row.stock_quantity !== ''
           ? parseInt(row.stock_quantity, 10)
@@ -97,7 +97,6 @@ Deno.serve(async (req) => {
           if (stockQty !== null && existing.stock_quantity !== stockQty) changes.stock_quantity = stockQty;
           if (existing.in_stock !== inStock) changes.in_stock = inStock;
           if (existing.volume !== row.size && row.size) changes.volume = row.size;
-          if (existing.pack_size !== packSize) changes.pack_size = packSize;
           if (Object.keys(changes).length > 0) {
             await base44.asServiceRole.entities.Product.update(existing.id, changes);
             updated++;
@@ -109,11 +108,9 @@ Deno.serve(async (req) => {
             name: row.product_name,
             brand: row.brand,
             category,
-            pack_size: packSize,
             volume: row.size,
             price,
             store_id: store.id,
-            ...(store.email ? { store_email: store.email } : {}),
             in_stock: inStock,
           };
           if (stockQty !== null) newProduct.stock_quantity = stockQty;

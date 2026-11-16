@@ -1,0 +1,73 @@
+{
+  "name": "LicenseAlert",
+  "type": "object",
+  "properties": {
+    "alert_key": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "document_id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "expiring",
+        "expired"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "expiration_date": {
+      "type": "string"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "email_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recipient_email": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "alert_key",
+    "store_id",
+    "store_name",
+    "kind",
+    "message",
+    "recipient_email"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

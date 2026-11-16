@@ -18,11 +18,16 @@ export default function MapOrderSidebar({ orders = [], selectedOrderId, onSelect
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
+    mutationFn: async ({ id, status }) => {
+      const { data } = await base44.functions.invoke('updateRetailerOrderStatus', { order_id: id, status });
+      if (data?.success !== true) throw new Error(data?.error || 'The order was not updated.');
+      return data;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['store-active-orders', storeId] }),
   });
 
-  const markReady = (order) => updateMutation.mutate({ id: order.id, data: { status: 'pickup_ready' } });
+  const acceptOrder = (order) => updateMutation.mutate({ id: order.id, status: 'confirmed' });
+  const markReady = (order) => updateMutation.mutate({ id: order.id, status: 'pickup_ready' });
 
   if (orders.length === 0) {
     return (
@@ -40,6 +45,8 @@ export default function MapOrderSidebar({ orders = [], selectedOrderId, onSelect
         <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
         <span className="text-xs text-muted-foreground font-medium">{orders.length} active order{orders.length !== 1 ? 's' : ''}</span>
       </div>
+      {updateMutation.error && <p role="alert" className="p-4 text-sm text-destructive">{updateMutation.error?.response?.data?.error || updateMutation.error.message}</p>}
+      {updateMutation.data?.driver_alert?.startsWith('failed:') && <p role="alert" className="border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">Order {updateMutation.data.order_number} was marked ready, but the driver notification failed. Contact the assigned driver directly before pickup. Do not repeat the payment.</p>}
       <div className="divide-y flex-1">
         {orders.map(order => {
           const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
@@ -83,6 +90,23 @@ export default function MapOrderSidebar({ orders = [], selectedOrderId, onSelect
                   <span>{order.driver_name}</span>
                   {order.status === 'in_transit' && <span className="text-emerald-600 ml-1">• Live</span>}
                 </div>
+              )}
+
+              {order.order_number === 'SS-MS7OHVYB' && !order.release_ready && (
+                <p className="mt-2 rounded bg-amber-50 border border-amber-300 p-2 text-xs text-amber-900">Reconciliation hold — review payment, items, final total, and store setup before filling.</p>
+              )}
+              {order.status === 'pending' && (order.order_number !== 'SS-MS7OHVYB' || order.release_ready) && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); acceptOrder(order); }}
+                  disabled={updateMutation.isPending}
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 bg-emerald-600 text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                >
+                  {updateMutation.isPending
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <CheckCircle2 className="w-3 h-3" />
+                  }
+                  Accept Order
+                </button>
               )}
 
               {(order.status === 'confirmed' || order.status === 'preparing') && (

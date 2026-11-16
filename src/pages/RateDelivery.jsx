@@ -35,11 +35,7 @@ export default function RateDelivery() {
           return;
         }
 
-        // Token format: base64(orderId:driverId:hmacSignature) — signature
-        // is verified server-side on submit; frontend only extracts IDs for display.
-        const parts = decoded.split(':');
-        const orderId = parts[0];
-        const driverId = parts[1];
+        const [orderId, driverId] = decoded.split(':');
         if (!orderId || !driverId) {
           setError('Invalid rating link.');
           setLoading(false);
@@ -81,13 +77,17 @@ export default function RateDelivery() {
     setSubmitting(true);
     try {
       await base44.functions.invoke('submitDeliveryRating', {
-        token,
+        order_id: order.id,
         rating,
         comment,
       });
       setSubmitted(true);
     } catch (e) {
-      setError('Failed to submit rating. Please try again.');
+      if (e?.response?.status === 401) {
+        base44.auth.redirectToLogin(window.location.pathname + window.location.search);
+        return;
+      }
+      setError(e?.response?.data?.error || 'Failed to submit rating. Please try again.');
     }
     setSubmitting(false);
   };

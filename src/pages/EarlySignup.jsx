@@ -11,9 +11,6 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { differenceInYears, parseISO } from 'date-fns';
-import ReferralCard from '@/components/signup/ReferralCard';
-import LiveSignupCounter from '@/components/signup/LiveSignupCounter';
-import FacebookFollowLink from '@/components/shared/FacebookFollowLink';
 
 const GIG_OPTIONS = [
   { value: 'doordash',  label: 'DoorDash' },
@@ -45,8 +42,6 @@ export default function EarlySignup() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [ageBlocked, setAgeBlocked] = useState(false);
-  const [referralCode, setReferralCode] = useState(null);
-  const [referredByCode] = useState(() => new URLSearchParams(window.location.search).get('ref') || '');
 
   const [form, setForm] = useState({
     full_name: '', email: '', phone: '', city: '',
@@ -110,7 +105,6 @@ export default function EarlySignup() {
   const handleSubmit = async () => {
     setLoading(true);
     const age = differenceInYears(new Date(), parseISO(form.date_of_birth));
-    const code = generateReferralCode(form.full_name);
     const payload = {
       role,
       full_name: form.full_name,
@@ -121,8 +115,6 @@ export default function EarlySignup() {
       age_verified: age >= 21,
       referral_source: form.referral_source,
       status: 'pending',
-      referral_code: code,
-      referred_by_code: referredByCode || undefined,
       ...(role === 'driver' && {
         gig_experience: form.gig_experience,
         has_vehicle: form.has_vehicle,
@@ -138,7 +130,6 @@ export default function EarlySignup() {
         data: { ...payload, source: 'early_signup' },
         event: { type: 'early_signup' },
       }).catch(() => {});
-      setReferralCode(code);
       setSubmitted(true);
     } catch {
       toast.error('Something went wrong. Please try again.');
@@ -186,7 +177,7 @@ export default function EarlySignup() {
             <>
               <p className="font-semibold text-secondary flex items-center gap-2"><Gift className="w-4 h-4" /> Early customer perks:</p>
               <p className="text-muted-foreground">• First delivery FREE</p>
-              <p className="text-muted-foreground">• 30-day free trial, no card required</p>
+              <p className="text-muted-foreground">• 7-day free trial, no card required</p>
               <p className="text-muted-foreground">• Priority access at launch</p>
             </>
           ) : (
@@ -199,13 +190,6 @@ export default function EarlySignup() {
           )}
         </div>
         <p className="text-xs text-muted-foreground">We'll email <strong>{form.email}</strong>. No spam, ever.</p>
-
-        <div className="border-t pt-4">
-          <ReferralCard referralCode={referralCode} role={role} fullName={form.full_name} />
-        </div>
-        <div className="pt-2">
-          <FacebookFollowLink />
-        </div>
       </div>
     </PageShell>
   );
@@ -232,7 +216,6 @@ export default function EarlySignup() {
           onClick={() => pickRole('driver')}
         />
       </div>
-      <LiveSignupCounter />
       <p className="text-center text-xs text-muted-foreground mt-4 flex items-center justify-center gap-1.5">
         <ShieldCheck className="w-3.5 h-3.5" /> Must be 21+ to participate
       </p>
@@ -446,12 +429,6 @@ export default function EarlySignup() {
 
 // ── Helper components ──────────────────────────────────────────
 
-function generateReferralCode(name) {
-  const initials = (name || 'AD').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${initials}${random}`;
-}
-
 function PageShell({ children }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
@@ -506,7 +483,7 @@ function PerksBanner({ role }) {
   return (
     <div className={cn('rounded-xl p-3 text-xs font-semibold', role === 'customer' ? 'bg-secondary/10 text-secondary' : 'bg-primary/10 text-primary')}>
       {role === 'customer'
-        ? '🎁 Early customers get: free first delivery + 30-day free trial'
+        ? '🎁 Early customers get: free first delivery + 7-day free trial'
         : '💰 Early drivers get: launch week bonuses + priority dispatch'}
     </div>
   );

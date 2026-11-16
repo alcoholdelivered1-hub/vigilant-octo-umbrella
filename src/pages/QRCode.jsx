@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Printer, Share2, Wine, Store } from 'lucide-react';
-import RetailerOnboardingCard from '@/components/share/RetailerOnboardingCard';
+import { Printer, Share2, Wine } from 'lucide-react';
 
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'https://sipswift.com';
 
@@ -27,9 +25,6 @@ export default function QRCode() {
         </Button>
         <Button variant="outline" onClick={handleCopy} className="gap-2">
           <Share2 className="w-4 h-4" /> {copied ? 'Copied!' : 'Copy Link'}
-        </Button>
-        <Button asChild className="gap-2">
-          <Link to="/retailer-onboarding"><Store className="w-4 h-4" /> For Retailers</Link>
         </Button>
       </div>
 
@@ -78,9 +73,6 @@ export default function QRCode() {
           Drink responsibly. Arkansas ACT 157 compliant.
         </p>
       </div>
-
-      {/* Retailer onboarding shortcuts — visible on screen, hidden when printing the customer card */}
-      <RetailerOnboardingCard />
 
       <style>{`
         @media print {

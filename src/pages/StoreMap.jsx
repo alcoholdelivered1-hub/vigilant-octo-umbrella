@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { getPublicStores } from '@/api/publicStores';
 import { useQuery } from '@tanstack/react-query';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -74,7 +74,7 @@ export default function StoreMap() {
 
   const { data: stores = [], isLoading } = useQuery({
     queryKey: ['store-map-stores'],
-    queryFn: () => base44.entities.Store.filter({ is_active: true }),
+    queryFn: () => getPublicStores({ liveOnly: true }),
   });
 
   const storesWithCoords = stores.filter(s => s.latitude && s.longitude);
@@ -157,7 +157,7 @@ export default function StoreMap() {
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             />
             {fitPoints.length > 0 && <FitBounds points={fitPoints} />}
 

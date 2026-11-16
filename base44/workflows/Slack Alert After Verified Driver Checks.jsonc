@@ -1,0 +1,42 @@
+{
+  "name": "Slack Alert After Verified Driver Checks",
+  "description": "When shared driver readiness changes, checks stores with confirmed tax evidence and sends their first combined-completion Slack alert.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Driver",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.is_active == true and .trigger.data.status == \"available\" and .trigger.data.training_completed == true and .trigger.data.background_check_status == \"clear\" and (((.trigger.data.background_check_id // \"\") | test(\"^(simulated|test|demo|ad-)\"; \"i\")) | not) and (.trigger.event_type == \"create\" or any((.trigger.changed_fields // [])[]; . == \"is_active\" or . == \"status\" or . == \"training_completed\" or . == \"background_check_status\" or . == \"background_check_id\" or . == \"background_check_completed_at\" or . == \"date_of_birth\" or . == \"license_number\" or . == \"vehicle_info\" or . == \"email\")) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "slack_verified_driver_checks",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_completion": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyStoreTaxDriverComplete",
+            "args": {
+              "source_entity": "Driver",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Recheck store tax and driver completion",
+            "description": "Use qualified shared-driver coverage"
+          }
+        }
+      }
+    ]
+  }
+}

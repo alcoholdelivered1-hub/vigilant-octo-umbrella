@@ -1,0 +1,102 @@
+{
+  "name": "FoundingMembership",
+  "properties": {
+    "amount_paid": {
+      "type": "number"
+    },
+    "annual_discount_uses": {
+      "default": 12,
+      "type": "number"
+    },
+    "currency": {
+      "default": "usd",
+      "type": "string"
+    },
+    "customer_email": {
+      "format": "email",
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "is_transferable": {
+      "default": false,
+      "type": "boolean"
+    },
+    "membership_terms_version": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "purchased_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "service_discount_amount": {
+      "default": 2,
+      "type": "number"
+    },
+    "status": {
+      "default": "pending",
+      "enum": [
+        "pending",
+        "active",
+        "refunded",
+        "cancelled"
+      ],
+      "type": "string"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "stripe_session_id": {
+      "type": "string"
+    },
+    "tier": {
+      "default": "founding_platinum",
+      "enum": [
+        "founding_platinum"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_email",
+    "tier",
+    "amount_paid",
+    "status",
+    "stripe_session_id",
+    "membership_terms_version"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.customer_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "type": "object"
+}

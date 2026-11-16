@@ -1,0 +1,40 @@
+{
+  "name": "LaunchPartnerPlacement",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ends_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "store_id",
+    "starts_at",
+    "ends_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

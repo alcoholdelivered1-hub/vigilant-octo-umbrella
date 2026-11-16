@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { getPublicStores } from '@/api/publicStores';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, ArrowLeft, MapPin, Clock, ShieldCheck, ChevronDown, ChevronUp, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import ProductCard from '@/components/stores/ProductCard';
+import ColonialStorefront from '@/components/stores/ColonialStorefront';
+import LiquorKingStorefront from '@/components/stores/LiquorKingStorefront';
+import RetailerStorefront from '@/components/stores/RetailerStorefront';
 import { useCart } from '@/hooks/useCart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -16,37 +15,47 @@ const categories = ['all', 'beer', 'wine', 'spirits', 'mixers', 'accessories'];
 export default function StoreDetail() {
   const { storeId } = useParams();
   const [activeCategory, setActiveCategory] = useState('all');
-  const [showInfo, setShowInfo] = useState(false);
-  const [search, setSearch] = useState('');
   const { addItem, itemCount } = useCart();
 
   const { data: store, isLoading: storeLoading } = useQuery({
     queryKey: ['store', storeId],
+    refetchInterval: 60000,
     queryFn: async () => {
-      const stores = await base44.entities.Store.filter({ id: storeId });
+      const stores = await getPublicStores({ storeId });
       return stores[0];
     },
   });
 
-  const { data: products = [], isLoading: productsLoading } = useQuery({
+  const isStoreLive = Boolean(
+    store?.is_active &&
+    store?.onboarding_status === 'live' &&
+    store?.compliance_status === 'compliant' &&
+    store?.stripe_connection_status === 'connected'
+  );
+  // Preview stores (retailer agreement pending) can be browsed but not ordered from
+  const isPreview = Boolean(store?.is_browsable && !isStoreLive);
+  const canOrder = isStoreLive;
+
+  const isLiquorKing = storeId === '6abe70789403f586d10561db';
+  const { data: products = [], isLoading: productsLoading, isError: productsError, refetch: retryProducts } = useQuery({
     queryKey: ['products', storeId],
-    queryFn: () => base44.entities.Product.filter({ store_id: storeId, in_stock: true }),
+    queryFn: async () => (await base44.entities.Product.filter({ store_id: storeId, in_stock: true }, 'name', isLiquorKing ? 5000 : undefined))
+      .filter(product => Number(product.price) > 0 && (product.stock_quantity == null || product.stock_quantity > 0)
+        && Boolean(product.last_synced_at)
+        && (isLiquorKing ? product.inventory_source === 'clover' : ['clover', 'manual', 'csv'].includes(product.inventory_source))),
+    enabled: isStoreLive || isPreview,
+    refetchInterval: isLiquorKing ? 30000 : false,
   });
 
-  const q = search.trim().toLowerCase();
-  const filtered = products.filter(p => {
-    const catOk = activeCategory === 'all' || p.category === activeCategory;
-    if (!catOk) return false;
-    if (!q) return true;
-    return (
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.brand || '').toLowerCase().includes(q) ||
-      (p.description || '').toLowerCase().includes(q) ||
-      (p.category || '').toLowerCase().includes(q)
-    );
-  });
+  const filtered = activeCategory === 'all'
+    ? products
+    : products.filter(p => p.category === activeCategory);
 
   const handleAdd = (product) => {
+    if (!canOrder) {
+      toast.error('This retailer isn’t accepting orders yet — check back soon.');
+      return;
+    }
     addItem(product, storeId, store?.name || '');
     toast.success(`${product.name} added to cart`);
   };
@@ -63,86 +72,14 @@ export default function StoreDetail() {
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <Link to="/stores" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="w-4 h-4" />
-        Back to Stores
-      </Link>
+  if (isLiquorKing && store) {
+    return <LiquorKingStorefront store={store} products={products} productsLoading={productsLoading} productsError={productsError} retryProducts={retryProducts} isStoreLive={isStoreLive} activeCategory={activeCategory} setActiveCategory={setActiveCategory} handleAdd={handleAdd} itemCount={itemCount} />;
+  }
 
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="font-display text-2xl font-bold truncate">{store?.name}</h1>
-            <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
-          </div>
-          <button
-            onClick={() => setShowInfo(!showInfo)}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            {store?.city}
-            {showInfo ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-        {itemCount > 0 && (
-          <Link to="/checkout" className="shrink-0">
-            <Button className="rounded-xl">
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              Cart ({itemCount})
-            </Button>
-          </Link>
-        )}
-      </div>
+  if (storeId === '6a3bed91eb84bc989a04e479' && store) {
+    return <ColonialStorefront store={store} products={filtered} productsLoading={productsLoading} isStoreLive={isStoreLive} isPreview={isPreview} activeCategory={activeCategory} setActiveCategory={setActiveCategory} handleAdd={handleAdd} itemCount={itemCount} />;
+  }
 
-      {showInfo && (
-        <div className="bg-muted/40 rounded-xl p-4 mb-6 space-y-2 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
-            {store?.address}, {store?.city}, {store?.state} {store?.zip_code}
-          </div>
-          {store?.operating_hours_start && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              {store?.operating_hours_start} – {store?.operating_hours_end}
-            </div>
-          )}
-          <p className="text-xs text-muted-foreground">License: {store?.license_number}</p>
-        </div>
-      )}
-
-      <div className="sticky top-0 z-10 bg-background pt-2 pb-4 -mx-4 px-4 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search for a drink, brand, or category..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 rounded-xl h-11"
-          />
-        </div>
-        <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-          <TabsList className="bg-muted/50 w-full overflow-x-auto">
-            {categories.map(c => (
-              <TabsTrigger key={c} value={c} className="capitalize text-xs flex-1">{c}</TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {productsLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="aspect-square rounded-2xl" />)}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground">{search ? 'No products match your search' : 'No products found in this category'}</div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map(product => (
-            <ProductCard key={product.id} product={product} onAdd={handleAdd} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  if (!store) return <div className="p-8 text-center"><p>Retailer not found.</p><Link to="/stores" className="text-primary underline">Back to stores</Link></div>;
+  return <RetailerStorefront store={store} products={products} productsLoading={productsLoading} productsError={productsError} retryProducts={retryProducts} isStoreLive={isStoreLive} activeCategory={activeCategory} setActiveCategory={setActiveCategory} handleAdd={handleAdd} itemCount={itemCount} />;
 }

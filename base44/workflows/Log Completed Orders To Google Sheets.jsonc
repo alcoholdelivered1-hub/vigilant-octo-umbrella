@@ -1,0 +1,41 @@
+{
+  "name": "Log Completed Orders To Google Sheets",
+  "description": "When an order is created as pending, or its status transitions to delivered or cancelled, automatically append a row with the full order details to the accounting Google Sheet backup.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.event_type == \"create\" and .trigger.data.status == \"pending\") or (.trigger.event_type == \"update\" and .trigger.data.status != .trigger.old_data.status and (.trigger.data.status == \"pending\" or .trigger.data.status == \"delivered\" or .trigger.data.status == \"cancelled\")) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "log_orders_to_sheets",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "log_to_sheet": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "logOrderToSheets",
+            "args": {
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Append order to Google Sheet",
+            "description": "Accounting backup of pending, delivered and cancelled orders"
+          }
+        }
+      }
+    ]
+  }
+}

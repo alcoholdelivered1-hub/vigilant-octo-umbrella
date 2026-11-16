@@ -1,0 +1,83 @@
+{
+  "name": "CloverConnection",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string",
+      "description": "Store linked to this Clover merchant"
+    },
+    "merchant_id": {
+      "type": "string",
+      "description": "Clover merchant ID"
+    },
+    "merchant_name": {
+      "type": "string",
+      "description": "Verified Clover merchant name"
+    },
+    "encrypted_access_token": {
+      "type": "string"
+    },
+    "access_token_iv": {
+      "type": "string"
+    },
+    "encrypted_refresh_token": {
+      "type": "string"
+    },
+    "refresh_token_iv": {
+      "type": "string"
+    },
+    "access_token_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "refresh_token_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "expired",
+        "disconnected"
+      ],
+      "default": "connected"
+    },
+    "connected_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "store_id",
+    "merchant_id",
+    "merchant_name",
+    "encrypted_access_token",
+    "access_token_iv",
+    "encrypted_refresh_token",
+    "refresh_token_iv",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

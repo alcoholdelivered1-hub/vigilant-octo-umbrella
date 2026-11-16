@@ -29,17 +29,20 @@ export default function Profile() {
     }
   }, [user]);
 
+  // logout() may redirect synchronously and return undefined, so never chain .catch directly.
+  const signOut = () => { Promise.resolve(base44.auth.logout('/')).catch(() => {}); };
+
   const handleLogout = () => {
-    base44.auth.logout('/').catch(() => {});
+    signOut();
   };
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
-      // Clear user data and log out
-      await base44.auth.updateMe({ account_deleted: true, deleted_at: new Date().toISOString() });
-      toast.success('Account deleted. Goodbye!');
-      base44.auth.logout('/').catch(() => {});
+      await base44.functions.invoke('delete-account', {});
+      queryClient.clear();
+      toast.success('Account permanently deleted.');
+      signOut();
     } catch (e) {
       toast.error('Failed to delete account. Please contact support.');
     }
@@ -47,24 +50,6 @@ export default function Profile() {
   };
 
   const onboardingData = user?.onboarding_data || {};
-
-  // Not logged in — show login prompt (public app, no auth guard on this route)
-  if (!user) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <User className="w-8 h-8 text-primary" />
-        </div>
-        <h1 className="font-display text-2xl font-bold">Sign In Required</h1>
-        <p className="text-muted-foreground mt-2">Log in to view your profile and orders.</p>
-        <Button className="mt-6" onClick={() => base44.auth.redirectToLogin('/profile')}>
-          Sign In
-        </Button>
-      </div>
-    );
-  }
-
-  const displayName = user.full_name || [onboardingData.first_name, onboardingData.last_name].filter(Boolean).join(' ') || 'Customer';
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 pb-24">
@@ -78,7 +63,7 @@ export default function Profile() {
             <User className="w-7 h-7 text-primary" />
           </div>
           <div>
-            <p className="font-semibold text-lg">{displayName}</p>
+            <p className="font-semibold text-lg">{user?.full_name || onboardingData.first_name + ' ' + onboardingData.last_name}</p>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
           </div>
         </div>
@@ -106,6 +91,20 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Founding Platinum */}
+      <button
+        onClick={() => navigate('/membership')}
+        className="w-full mb-4 rounded-2xl border border-amber-300/40 bg-gradient-to-r from-slate-950 to-slate-800 p-5 text-left text-white hover:border-amber-300 transition-colors"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-amber-200">Founding Platinum Membership</p>
+            <p className="text-xs text-slate-300 mt-1">One-time $500 founding offer · Limited to 20</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-amber-300" />
+        </div>
+      </button>
+
       {/* Referral Program */}
       <div className="mb-4">
         <ReferralSection user={user} />
@@ -131,15 +130,13 @@ export default function Profile() {
           <span className="text-sm font-medium">My Orders</span>
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>
-        {user?.role === 'admin' && (
-          <button
-            onClick={() => navigate('/driver')}
-            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/50 transition-colors"
-          >
-            <span className="text-sm font-medium">Driver Portal</span>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </button>
-        )}
+        <button
+          onClick={() => navigate('/driver')}
+          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/50 transition-colors"
+        >
+          <span className="text-sm font-medium">Driver Portal</span>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
       </div>
 
       {/* Logout */}

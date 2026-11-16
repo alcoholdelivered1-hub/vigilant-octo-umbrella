@@ -23,19 +23,38 @@
     },
     "sender_email": {
       "type": "string",
-      "description": "Email of the sender for RLS filtering"
+      "description": "Authenticated sender email"
     },
     "customer_email": {
       "type": "string",
-      "description": "Customer email on the order, for read access"
+      "description": "Customer participant in customer-driver chat"
     },
     "driver_id": {
       "type": "string",
-      "description": "Driver user ID on the order, for read access"
+      "description": "Assigned driver record or user ID"
+    },
+    "driver_email": {
+      "type": "string",
+      "description": "Assigned driver's email for chat access"
+    },
+    "store_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Authorized retailer contacts in store-driver chat"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "customer_driver",
+        "store_driver"
+      ]
     },
     "text": {
       "type": "string",
-      "description": "Message content"
+      "description": "Message content",
+      "maxLength": 2000
     },
     "is_read": {
       "type": "boolean",
@@ -49,7 +68,9 @@
   ],
   "rls": {
     "create": {
-      "created_by_id": "{{user.id}}"
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "read": {
       "$or": [
@@ -61,6 +82,12 @@
         },
         {
           "data.sender_email": "{{user.email}}"
+        },
+        {
+          "data.driver_email": "{{user.email}}"
+        },
+        {
+          "data.store_emails": "{{user.email}}"
         },
         {
           "user_condition": {

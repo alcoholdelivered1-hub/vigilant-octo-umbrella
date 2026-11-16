@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 8 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_store_license_expiration_alerts",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_licenses": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "checkStoreLicenseAlerts",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check store license deadlines",
+            "description": "30-day and 7-day warnings"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Daily Store License Expiration Alerts",
+  "description": "Check store license expiration daily at 8 AM Central; alert at 30 days, 7 days, and after expiration without duplicate daily emails."
+}

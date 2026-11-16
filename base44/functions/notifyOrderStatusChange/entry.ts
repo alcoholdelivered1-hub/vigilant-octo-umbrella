@@ -1,19 +1,5 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
-
-function buildRawEmail(to, subject, body, fromName) {
-  const fromHeader = `${fromName} <alcohol.delivered1@gmail.com>`;
-  const message = [
-    `From: ${fromHeader}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: text/plain; charset=UTF-8`,
-    ``,
-    body,
-  ].join('\r\n');
-  return btoa(unescape(encodeURIComponent(message)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 const STATUS_MESSAGES = {
   confirmed: {
@@ -51,13 +37,8 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const payload = await req.json();
 
-    // Must be an automation event payload or called by admin
-    if (!payload.event) {
-      const user = await base44.auth.me().catch(() => null);
-      if (user?.role !== 'admin') {
-        return Response.json({ error: 'Forbidden' }, { status: 403 });
-      }
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const { event, data: order, old_data } = payload;
 
@@ -78,23 +59,11 @@ Deno.serve(async (req) => {
       return Response.json({ skipped: true, reason: `No template for status: ${newStatus}` });
     }
 
-    // Use Gmail to send — platform SendEmail only reaches registered app users
-    const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
-    const raw = buildRawEmail(order.customer_email, template.subject, template.body(order), 'Alcohol Delivered');
-
-    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ raw }),
+    await base44.asServiceRole.integrations.Core.SendEmail({
+      to: order.customer_email,
+      subject: template.subject,
+      body: template.body(order),
     });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      throw new Error(`Gmail API error: ${res.status} — ${errBody}`);
-    }
 
     console.log(`Sent ${newStatus} notification to ${order.customer_email} for order ${order.order_number}`);
 

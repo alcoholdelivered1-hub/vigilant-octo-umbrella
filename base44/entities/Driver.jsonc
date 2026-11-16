@@ -28,6 +28,10 @@
       "type": "string",
       "format": "date"
     },
+    "training_certificate_file_uri": {
+      "type": "string",
+      "description": "Private uploaded training certificate, linked to the driver record for audit"
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -50,8 +54,7 @@
     },
     "is_active": {
       "type": "boolean",
-      "default": false,
-      "description": "False until the driver is fully vetted (genuine cleared background check + training). Inactive drivers cannot claim or be assigned orders."
+      "default": true
     },
     "vehicle_info": {
       "type": "string"
@@ -65,48 +68,56 @@
       "maxLength": 1000,
       "description": "Optional notes or bio for this driver"
     },
-    "last_shift_checklist_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "When the driver last completed the pre-shift compliance checklist"
-    },
     "background_check_status": {
       "type": "string",
       "enum": [
         "pending",
         "clear",
+        "manual_clear",
         "failed",
         "error"
       ],
       "default": "pending",
-      "description": "Status of the third-party background check"
+      "description": "Status of the third-party background check. manual_clear = admin-uploaded PDF approved offline."
     },
     "background_check_id": {
       "type": "string",
-      "description": "External background check report ID"
+      "description": "External background check report ID (Checkr)"
     },
     "background_check_completed_at": {
       "type": "string",
       "format": "date-time",
       "description": "When the background check was completed"
     },
-    "vetting_flagged": {
-      "type": "boolean",
-      "default": false,
-      "description": "True when an admin has flagged this unverified driver for investigation / police handover"
-    },
-    "vetting_flagged_at": {
+    "background_check_submitted_at": {
       "type": "string",
       "format": "date-time",
-      "description": "When the driver was flagged for investigation"
+      "description": "Consent-form submission timestamp, not provider clearance"
     },
-    "vetting_flagged_reason": {
+    "background_check_file_uri": {
       "type": "string",
-      "description": "Reason the driver was flagged for investigation"
+      "description": "Private uploaded background check PDF for manual admin review"
     },
-    "investigation_notes": {
+    "background_check_manual_reviewer": {
       "type": "string",
-      "description": "Admin / investigator notes about this unverified or flagged driver"
+      "description": "Admin email who manually approved the uploaded background check PDF"
+    },
+    "background_check_manual_approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when admin approved the manual background check upload"
+    },
+    "service_city": {
+      "type": "string",
+      "description": "Driver-selected city for retailer coverage planning"
+    },
+    "license_file_uri": {
+      "type": "string",
+      "description": "Private uploaded driver license"
+    },
+    "insurance_file_uri": {
+      "type": "string",
+      "description": "Private uploaded insurance document, linked to the driver record for audit"
     }
   },
   "required": [

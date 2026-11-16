@@ -6,6 +6,10 @@
       "type": "string",
       "description": "Unique order identifier"
     },
+    "receipt_token": {
+      "type": "string",
+      "description": "Server-generated unguessable token required for anonymous receipt lookup. Never derived from the timestamp-based order number."
+    },
     "customer_email": {
       "type": "string"
     },
@@ -20,10 +24,6 @@
     },
     "store_name": {
       "type": "string"
-    },
-    "store_email": {
-      "type": "string",
-      "description": "Retailer contact email \u2014 denormalized from Store so RLS can grant the store owner read access to their store's orders"
     },
     "items": {
       "type": "array",
@@ -64,13 +64,7 @@
       "description": "Calculated distance in miles from store to delivery address"
     },
     "tax": {
-      "type": "number",
-      "description": "Arkansas state + local sales tax"
-    },
-    "alcohol_excise_tax": {
-      "type": "number",
-      "default": 0,
-      "description": "Arkansas retail alcohol excise tax (1% beer, 3% wine/spirits)"
+      "type": "number"
     },
     "tip": {
       "type": "number",
@@ -96,6 +90,14 @@
     "stripe_session_id": {
       "type": "string",
       "description": "Stripe checkout session ID"
+    },
+    "stripe_connect_account_id": {
+      "type": "string",
+      "description": "Licensed retailer's connected Stripe account that owns this direct charge"
+    },
+    "stripe_application_fee_amount": {
+      "type": "number",
+      "description": "Platform application fee in USD: service, delivery, mileage and driver tip"
     },
     "status": {
       "type": "string",
@@ -125,11 +127,14 @@
       "description": "GPS location where order was placed"
     },
     "order_longitude": {
-      "type": "number",
-      "description": "GPS location where order was placed"
+      "type": "number"
     },
     "driver_id": {
       "type": "string"
+    },
+    "driver_email": {
+      "type": "string",
+      "description": "Authenticated driver email used for assigned-order access control"
     },
     "driver_name": {
       "type": "string"
@@ -147,6 +152,10 @@
       "format": "date-time",
       "description": "Last time driver GPS was updated"
     },
+    "doordash_delivery_id": {
+      "type": "string",
+      "description": "DoorDash Drive delivery ID when fulfillment is handled by DoorDash"
+    },
     "id_verified_at_checkout": {
       "type": "boolean",
       "default": false
@@ -157,18 +166,6 @@
     },
     "delivery_signature_url": {
       "type": "string"
-    },
-    "delivery_photo_url": {
-      "type": "string",
-      "description": "Photo of the delivered order at the drop-off location, required to mark delivered (audit proof)"
-    },
-    "delivery_confirmed_latitude": {
-      "type": "number",
-      "description": "GPS latitude captured at drop-off confirmation (audit proof)"
-    },
-    "delivery_confirmed_longitude": {
-      "type": "number",
-      "description": "GPS longitude captured at drop-off confirmation (audit proof)"
     },
     "delivery_confirmed_at": {
       "type": "string",
@@ -182,10 +179,6 @@
       "type": "string",
       "description": "Reason if delivery was refused"
     },
-    "refusal_id_photo_url": {
-      "type": "string",
-      "description": "Photo of the refused customer's ID, captured at refusal for state ABC audit compliance"
-    },
     "is_in_legal_zone": {
       "type": "boolean",
       "default": true
@@ -193,9 +186,35 @@
     "notes": {
       "type": "string"
     },
-    "clover_order_id": {
+    "liquorbee_order_id": {
       "type": "string",
-      "description": "Clover POS order ID once the order has been pushed to the store's Clover merchant (open state, not charged)"
+      "description": "LiquorBee order identifier returned when the order was pushed to the retailer's POS"
+    },
+    "liquorbee_status": {
+      "type": "string",
+      "enum": [
+        "Open",
+        "Ready",
+        "Closed"
+      ],
+      "description": "Mirror of the LiquorBee POS status. Never replaces the app's own delivery status."
+    },
+    "liquorbee_is_stale": {
+      "type": "boolean",
+      "description": "LiquorBee reports the POS copy of this order as stale"
+    },
+    "liquorbee_pos_modified": {
+      "type": "boolean",
+      "description": "LiquorBee reports the order was changed at the POS"
+    },
+    "liquorbee_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last successful LiquorBee synchronization"
+    },
+    "liquorbee_last_error": {
+      "type": "string",
+      "description": "Last LiquorBee submission or status error; cleared on the next success"
     }
   },
   "required": [
@@ -208,22 +227,41 @@
   ],
   "rls": {
     "create": {
-      "created_by_id": "{{user.id}}",
-      "data.customer_email": "{{user.email}}"
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "read": {
       "$or": [
         {
-          "data.customer_email": "{{user.email}}"
+          "$and": [
+            {
+              "data.customer_email": "{{user.email}}"
+            },
+            {
+              "data.customer_email": {
+                "$nin": [
+                  null,
+                  ""
+                ]
+              }
+            }
+          ]
         },
         {
-          "data.driver_id": "{{user.id}}"
-        },
-        {
-          "data.store_email": "{{user.email}}"
-        },
-        {
-          "data.status": "pending"
+          "$and": [
+            {
+              "data.driver_email": "{{user.email}}"
+            },
+            {
+              "data.driver_email": {
+                "$nin": [
+                  null,
+                  ""
+                ]
+              }
+            }
+          ]
         },
         {
           "user_condition": {
@@ -233,25 +271,9 @@
       ]
     },
     "update": {
-      "$or": [
-        {
-          "data.customer_email": "{{user.email}}"
-        },
-        {
-          "data.driver_id": "{{user.id}}"
-        },
-        {
-          "data.store_email": "{{user.email}}"
-        },
-        {
-          "data.status": "pending"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
       "user_condition": {

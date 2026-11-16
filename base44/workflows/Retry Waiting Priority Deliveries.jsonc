@@ -1,0 +1,45 @@
+{
+  "name": "Retry Waiting Priority Deliveries",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "retry_waiting_priority_deliveries",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "retry_queue": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "retryPriorityDeliveries",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Retry waiting deliveries",
+            "description": "Both priority stores, cleared drivers only"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/5 * * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "Every five minutes retry up to ten waiting priority-store orders and release completed drivers only when they have no active orders. Store launch and compliance holds remain in force."
+}

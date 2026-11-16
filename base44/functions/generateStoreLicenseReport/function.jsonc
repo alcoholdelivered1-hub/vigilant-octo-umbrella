@@ -1,0 +1,20 @@
+{
+  "name": "generateStoreLicenseReport",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "scheduled",
+      "ends_type": "never",
+      "is_active": false,
+      "name": "Weekly Store License Audit Report",
+      "repeat_interval": 1,
+      "repeat_on_days": [
+        1
+      ],
+      "repeat_unit": "weeks",
+      "schedule_mode": "recurring",
+      "schedule_type": "simple",
+      "start_time": "13:00"
+    }
+  ]
+}

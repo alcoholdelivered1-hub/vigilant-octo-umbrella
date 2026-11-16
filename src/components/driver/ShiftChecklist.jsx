@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Circle, ShieldCheck, BookOpen, AlertTriangle, ClipboardList, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { format, isToday } from 'date-fns';
+import { format } from 'date-fns';
 
 const CHECKLIST_ITEMS = [
   {
@@ -15,7 +14,7 @@ const CHECKLIST_ITEMS = [
     bg: 'bg-blue-50',
     border: 'border-blue-200',
     label: 'Alcohol safety training completed',
-    description: 'I have completed the required Arkansas ABC alcohol delivery training.',
+    description: 'I have current annual certification from an ABC-approved training program and carry training proof plus my completed ABC Third-party Delivery Server Awareness form.',
     required: true,
   },
   {
@@ -92,7 +91,7 @@ const CHECKLIST_ITEMS = [
     bg: 'bg-purple-50',
     border: 'border-purple-200',
     label: 'I will only deliver within approved wet county zones',
-    description: 'I understand I must only make deliveries within legally approved delivery zones in Jefferson County and surrounding areas.',
+    description: 'I will verify the address against the official ABC wet/dry map and deliver only in eligible wet territory in the retailer county or an adjoining county, within our service area.',
     required: true,
   },
   {
@@ -111,18 +110,10 @@ const CHECKLIST_ITEMS = [
 const CATEGORIES = [...new Set(CHECKLIST_ITEMS.map(i => i.category))];
 
 export default function ShiftChecklist({ userEmail, onComplete }) {
-  const queryClient = useQueryClient();
   const [checked, setChecked] = useState({});
   const [submitting, setSubmitting] = useState(false);
-
-  const { data: driver, isLoading: driverLoading } = useQuery({
-    queryKey: ['driver-profile', userEmail],
-    queryFn: () => base44.entities.Driver.filter({ email: userEmail }, 'name', 1),
-    enabled: !!userEmail,
-  });
-
-  const lastChecklistAt = driver?.[0]?.last_shift_checklist_at;
-  const alreadyCompletedToday = lastChecklistAt ? isToday(new Date(lastChecklistAt)) : false;
+  const [submitted, setSubmitted] = useState(false);
+  const [submittedAt, setSubmittedAt] = useState(null);
 
   const requiredItems = CHECKLIST_ITEMS.filter(i => i.required);
   const allRequiredChecked = requiredItems.every(i => checked[i.id]);
@@ -140,29 +131,25 @@ export default function ShiftChecklist({ userEmail, onComplete }) {
     }
     setSubmitting(true);
     try {
+      // Store the checklist completion as a driver entity note
       const drivers = await base44.entities.Driver.filter({ email: userEmail }, 'name', 1);
       if (drivers.length > 0) {
+        const now = new Date().toISOString();
         await base44.entities.Driver.update(drivers[0].id, {
-          last_shift_checklist_at: new Date().toISOString(),
+          description: `Shift checklist completed: ${format(new Date(), 'PPpp')} | Training: ✓ | Age verification: ✓ | Legal compliance: ✓`,
         });
       }
-      queryClient.invalidateQueries({ queryKey: ['driver-profile', userEmail] });
-      toast.success("Shift checklist submitted — you're cleared to start delivering!");
+      const ts = new Date();
+      setSubmittedAt(ts);
+      setSubmitted(true);
+      toast.success('Shift checklist recorded. Driver credentials and order eligibility must still pass.');
       if (onComplete) onComplete();
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (driverLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (alreadyCompletedToday) {
+  if (submitted) {
     return (
       <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-8 text-center space-y-4">
         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
@@ -170,15 +157,11 @@ export default function ShiftChecklist({ userEmail, onComplete }) {
         </div>
         <div>
           <h2 className="font-display text-xl font-bold text-emerald-800">Shift Checklist Complete</h2>
-          <p className="text-emerald-700 text-sm mt-1">Submitted at {format(new Date(lastChecklistAt), 'h:mm a, MMMM d')}</p>
+          <p className="text-emerald-700 text-sm mt-1">Submitted at {submittedAt ? format(submittedAt, 'h:mm a, MMMM d') : ''}</p>
         </div>
-        <p className="text-sm text-emerald-700">You're legally cleared and ready to start delivering. Stay safe and follow all Arkansas ABC guidelines.</p>
-        <Button
-          onClick={() => { setChecked({}); }}
-          variant="outline"
-          size="sm"
-        >
-          Redo Checklist
+        <p className="text-sm text-emerald-700">Your acknowledgments are recorded. This checklist does not grant ABC approval or replace verified credentials, annual certification, or legal delivery-area checks.</p>
+        <Button onClick={() => { setSubmitted(false); setChecked({}); }} variant="outline" size="sm">
+          Reset for Next Shift
         </Button>
       </div>
     );

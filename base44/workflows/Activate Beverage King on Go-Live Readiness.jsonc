@@ -1,0 +1,41 @@
+{
+  "name": "Activate Beverage King on Go-Live Readiness",
+  "description": "When Beverage King's tax confirmation is marked confirmed, re-run the go-live readiness check; the store flips to Live only if every blocker (including driver clearance) is resolved.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "TaxConfirmation",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"confirmed\" and .trigger.data.store_id == \"6a32d14d09b760f592dbf19e\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "activate_beverage_king_on_readiness",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_go_live_check": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "beverageKingGoLive",
+            "args": {
+              "action": "check"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run go-live readiness check",
+            "description": "Activates the store only if no blockers remain"
+          }
+        }
+      }
+    ]
+  }
+}

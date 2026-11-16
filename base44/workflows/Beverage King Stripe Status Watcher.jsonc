@@ -1,0 +1,44 @@
+{
+  "description": "Checks Beverage King's Stripe Connect account every 30 minutes while it is still restricted, and sends a one-time email alert the moment charges_enabled and payouts_enabled both turn true (Bobby Singh completed Stripe's verification/appeal). Stops alerting once stripe_connection_status is marked connected.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "beverage_king_stripe_status_watcher",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_stripe_status": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "watchBeverageKingStripeStatus"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check Beverage King Stripe status",
+            "description": "Every 30 minutes — read-only Stripe check; only writes/alerts once, on the transition to ready."
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/30 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Beverage King Stripe Status Watcher"
+}

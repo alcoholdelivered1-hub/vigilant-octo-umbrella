@@ -1,0 +1,4 @@
+{
+  "name": "retryPriorityDeliveries",
+  "entry": "entry.ts"
+}

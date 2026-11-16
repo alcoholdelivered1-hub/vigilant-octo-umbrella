@@ -1,0 +1,41 @@
+{
+  "name": "Email Retailer On Setup Review",
+  "description": "Sends a business Gmail update to saved retailer contacts when submitted onboarding information or final launch review is approved or requires correction. Approval is not store activation.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerSetupSubmission",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.data.status == \"approved\" or .trigger.data.status == \"needs_correction\") and .trigger.data.reviewed_at != null and (.trigger.old_data.status != .trigger.data.status or .trigger.old_data.reviewed_at != .trigger.data.reviewed_at) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "email_retailer_on_setup_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "email_setup_decision": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerReview",
+            "args": {
+              "entity": "RetailerSetupSubmission",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email onboarding review decision",
+            "description": "Business Gmail, saved retailer contacts"
+          }
+        }
+      }
+    ]
+  }
+}

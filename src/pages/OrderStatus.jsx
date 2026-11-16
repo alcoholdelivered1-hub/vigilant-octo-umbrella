@@ -89,7 +89,7 @@ function OrderMap({ order }) {
   return (
     <div className="rounded-xl overflow-hidden border h-52 mt-3">
       <MapContainer center={center} zoom={13} style={{ width: '100%', height: '100%' }} zoomControl={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CARTO' />
         <Marker position={center} icon={destIcon}>
           <Popup><p className="text-xs font-medium">{order.delivery_address}</p></Popup>
         </Marker>

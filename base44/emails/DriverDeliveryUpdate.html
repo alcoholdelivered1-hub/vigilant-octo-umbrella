@@ -1,0 +1,29 @@
+<mjml>
+  <mj-head>
+    <mj-title>{{headline}}: order {{order_number}}</mj-title>
+    <mj-preview>{{summary}}</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="Arial, Helvetica, sans-serif" />
+      <mj-section background-color="#ffffff" padding="28px 32px" />
+      <mj-text color="#0f1729" font-size="15px" line-height="1.6" padding="0" />
+      <mj-button background-color="#19216b" color="#ffffff" border-radius="12px" font-weight="700" inner-padding="14px 24px" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f6f7f9">
+    <mj-section background-color="#19216b"><mj-column>
+      <mj-image src="https://media.base44.com/images/public/69cf025b60e5f22c0c72f042/0c398d505_Untitled_Artwork.jpg" width="64px" alt="Alcohol Delivered" />
+      <mj-text color="#ffffff" align="center" font-size="20px" font-weight="700">Alcohol Delivered</mj-text>
+    </mj-column></mj-section>
+    <mj-section><mj-column>
+      <mj-text font-size="26px" font-weight="700">{{headline}}</mj-text>
+      <mj-text color="#6b7280">{{summary}}</mj-text>
+      <mj-spacer height="20px" />
+      <mj-text>Order: {{order_number}}<br />Driver: {{driver_name}}<br />Store: {{store_name}}<br />Pickup: {{pickup_address}}<br />Store phone: {{store_phone}}</mj-text>
+    </mj-column></mj-section>
+    <mj-section background-color="#f6f7f9"><mj-column>
+      <mj-text>{{instructions}}</mj-text>
+      <mj-button href="{{action_url}}">Open your delivery dashboard</mj-button>
+    </mj-column></mj-section>
+    <mj-section><mj-column><mj-text color="#6b7280" font-size="13px">Pickup requires retailer readiness. In-person government ID verification, age 21+ confirmation and handoff confirmation are required before delivery completion.</mj-text></mj-column></mj-section>
+  </mj-body>
+</mjml>

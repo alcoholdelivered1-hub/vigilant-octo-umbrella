@@ -1,0 +1,45 @@
+{
+  "name": "Weekly ABC Sunday Sales Check",
+  "description": "Checks Arkansas ABC for local-option Sunday alcohol sales certifications and applies them when they go into effect.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "weekly_abc_sunday_sales_check",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_abc": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "checkSundaySalesABC",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check Arkansas ABC",
+            "description": "Sunday sales certifications"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 * * 1",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

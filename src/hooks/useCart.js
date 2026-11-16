@@ -8,10 +8,6 @@ export function useCart() {
     return cartStore.subscribe(setCart);
   }, []);
 
-  // Derive total and itemCount from React cart state so they always stay in sync
-  const total = cart.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-  const itemCount = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
-
   return {
     cart,
     storeId: cartStore.getStoreId(),
@@ -19,7 +15,7 @@ export function useCart() {
     addItem: cartStore.addItem,
     updateQuantity: cartStore.updateQuantity,
     clear: cartStore.clear,
-    total,
-    itemCount,
+    total: cartStore.getTotal(),
+    itemCount: cartStore.getItemCount(),
   };
 }

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { format, subDays, startOfDay, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingUp, ShoppingBag, CheckCircle2, Clock, XCircle, SkipForward } from 'lucide-react';
+import { DollarSign, TrendingUp, ShoppingBag } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const RANGES = [
@@ -71,20 +71,6 @@ export default function StoreRevenuePanel({ storeId }) {
   // DailyReport table — last 30 days from admin-generated reports
   const recentReports = reports.slice(0, 30);
 
-  // Payout history (Stripe Connect transfers)
-  const { data: payouts = [] } = useQuery({
-    queryKey: ['store-payouts', storeId],
-    queryFn: () => base44.entities.StorePayout.filter({ store_id: storeId }, '-week_start', 20),
-    enabled: !!storeId,
-  });
-
-  const PAYOUT_STATUS = {
-    paid: { icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Paid' },
-    pending: { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Pending' },
-    failed: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', label: 'Failed' },
-    skipped: { icon: SkipForward, color: 'text-slate-500', bg: 'bg-slate-50', label: 'Skipped' },
-  };
-
   return (
     <div className="space-y-6">
       {/* Range selector */}
@@ -122,44 +108,6 @@ export default function StoreRevenuePanel({ storeId }) {
               <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Payout History (Stripe transfers) */}
-      {payouts.length > 0 && (
-        <div className="bg-card border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b">
-            <p className="text-sm font-semibold">Payout History</p>
-            <p className="text-xs text-muted-foreground">Weekly Stripe transfers to your bank</p>
-          </div>
-          <div className="divide-y max-h-72 overflow-y-auto">
-            {payouts.map(p => {
-              const cfg = PAYOUT_STATUS[p.status] || PAYOUT_STATUS.pending;
-              const StatusIcon = cfg.icon;
-              return (
-                <div key={p.id} className="px-4 py-3 flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
-                      <StatusIcon className={`w-4 h-4 ${cfg.color}`} />
-                    </div>
-                    <div>
-                      <p className="font-medium">Week of {p.week_start}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.order_count} orders · ${p.gross_revenue?.toFixed(2)} revenue
-                        {p.tax_collected ? ` + $${p.tax_collected.toFixed(2)} tax` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${p.status === 'paid' ? 'text-emerald-600' : 'text-foreground'}`}>
-                      ${p.total_amount?.toFixed(2)}
-                    </p>
-                    <p className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 

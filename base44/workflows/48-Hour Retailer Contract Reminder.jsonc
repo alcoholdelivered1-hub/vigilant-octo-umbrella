@@ -1,0 +1,54 @@
+{
+  "name": "48-Hour Retailer Contract Reminder",
+  "description": "Waits 48 hours after the first recorded contract request, then rechecks the retailer's digital submissions and signed uploads before sending one reminder from the connected business Gmail account. Delivery receipts prevent duplicate sends; submitted contracts are skipped, including those awaiting review.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Store",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.data.contract_sent_at // \"\") != \"\" and (.trigger.old_data.contract_sent_at // \"\") == \"\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "retailer_contract_reminder_48h",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "wait_for_submission": {
+          "wait": "P2D",
+          "then": "check_and_remind",
+          "x-base44": {
+            "title": "Wait 48 hours",
+            "description": "Allow time to sign and submit"
+          }
+        }
+      },
+      {
+        "check_and_remind": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendContractReminders",
+            "args": {
+              "reminder_type": "contract_48h",
+              "store_ids": [
+                "${ .trigger.entity_id }"
+              ]
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check submission and send reminder",
+            "description": "Skip submitted contracts and prior deliveries"
+          }
+        }
+      }
+    ]
+  }
+}

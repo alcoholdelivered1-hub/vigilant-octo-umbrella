@@ -1,0 +1,41 @@
+{
+  "name": "Activate Launch Partner Placement",
+  "description": "Starts the approved retailer\u2019s 30 free featured days when its store is live, without changing paid placement or launch checks.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Store",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.onboarding_status == \"live\" and .trigger.data.is_active == true and .trigger.data.stripe_connection_status == \"connected\" and .trigger.data.compliance_status == \"compliant\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "activate_launch_partner_placement",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "activate_placement": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "launchPartnerOffer",
+            "args": {
+              "store_id": "${ .trigger.entity_id }",
+              "action": "apply_reward"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Activate approved launch reward",
+            "description": "Starts 30 free featured days once the store is live"
+          }
+        }
+      }
+    ]
+  }
+}

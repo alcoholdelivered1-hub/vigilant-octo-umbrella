@@ -1,0 +1,50 @@
+{
+  "name": "RetailerStepEmailState",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "completed_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_email_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "store_id",
+    "completed_keys",
+    "checked_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

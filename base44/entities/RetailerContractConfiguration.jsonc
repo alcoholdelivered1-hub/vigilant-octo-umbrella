@@ -1,0 +1,66 @@
+{
+  "name": "RetailerContractConfiguration",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "payment_days": {
+      "type": "string"
+    },
+    "term_months": {
+      "type": "string"
+    },
+    "effective_date": {
+      "type": "string"
+    },
+    "resolution_note": {
+      "type": "string"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string"
+    },
+    "template_version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "version",
+    "payment_days",
+    "term_months",
+    "effective_date",
+    "resolution_note",
+    "approved_by",
+    "approved_at",
+    "template_version"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

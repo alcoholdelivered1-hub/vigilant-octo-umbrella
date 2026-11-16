@@ -1,0 +1,45 @@
+{
+  "name": "Alert Management on Delivery Refusal",
+  "description": "When a driver logs a delivery refusal (Order status \u2192 refused), logs a compliance incident and alerts the management team via email + push for Arkansas ABC compliance review. Covers ID verification failures and intoxication refusals.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"refused\" and .trigger.old_data.status != \"refused\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "alert_management_refusal",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "log_and_alert": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "logComplianceIncident",
+            "args": {
+              "event": {
+                "type": "update",
+                "entity_name": "Order",
+                "entity_id": "${ .trigger.entity_id }"
+              },
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Log refusal + alert management",
+            "description": "Classifies reason \u2192 emails + pushes admins for ABC compliance"
+          }
+        }
+      }
+    ]
+  }
+}

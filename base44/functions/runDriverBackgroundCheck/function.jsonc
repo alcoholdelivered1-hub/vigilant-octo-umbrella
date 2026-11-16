@@ -1,0 +1,16 @@
+{
+  "name": "runDriverBackgroundCheck",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "Automatically triggers a Checkr background check whenever a new Driver record is created. Updates background_check_status on the driver and emails the admin if the check fails.",
+      "entity_name": "Driver",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Driver Background Check on Signup"
+    }
+  ]
+}

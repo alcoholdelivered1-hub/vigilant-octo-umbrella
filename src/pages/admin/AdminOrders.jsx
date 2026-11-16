@@ -14,7 +14,7 @@ import OrderChat from '@/components/messaging/OrderChat';
 const statuses = ['pending', 'confirmed', 'preparing', 'pickup_ready', 'in_transit', 'delivered', 'cancelled', 'refused'];
 
 export default function AdminOrders() {
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('active');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkStatus, setBulkStatus] = useState('');
@@ -24,7 +24,6 @@ export default function AdminOrders() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders-list'],
     queryFn: () => base44.entities.Order.list('-created_date', 200),
-    refetchInterval: 10000, // live refresh during soft opening
   });
 
   const updateMutation = useMutation({
@@ -33,7 +32,7 @@ export default function AdminOrders() {
   });
 
   const filtered = orders.filter(o => {
-    const statusMatch = filter === 'all' || o.status === filter;
+    const statusMatch = filter === 'all' || (filter === 'active' ? !['cancelled', 'refused', 'delivered'].includes(o.status) : o.status === filter);
     const searchMatch = !search || o.order_number?.toLowerCase().includes(search.toLowerCase()) ||
       o.customer_name?.toLowerCase().includes(search.toLowerCase());
     return statusMatch && searchMatch;
@@ -83,9 +82,10 @@ export default function AdminOrders() {
           <Input placeholder="Search orders..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 rounded-xl" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active Orders</SelectItem>
+            <SelectItem value="all">All Orders (History)</SelectItem>
             {statuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -93,38 +93,41 @@ export default function AdminOrders() {
 
       {/* Bulk Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 mb-4">
-          <Zap className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-sm font-semibold text-primary">{selectedIds.size} order{selectedIds.size > 1 ? 's' : ''} selected</span>
-          <div className="flex-1" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-sm font-semibold text-primary">{selectedIds.size} order{selectedIds.size > 1 ? 's' : ''} selected</span>
+          </div>
           <Select value={bulkStatus} onValueChange={setBulkStatus}>
-            <SelectTrigger className="w-44 h-8 text-xs">
+            <SelectTrigger className="h-8 text-xs w-full sm:w-44">
               <SelectValue placeholder="Set status..." />
             </SelectTrigger>
             <SelectContent>
               {statuses.map(s => <SelectItem key={s} value={s} className="capitalize text-xs">{s.replace(/_/g, ' ')}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button
-            size="sm"
-            onClick={applyBulkUpdate}
-            disabled={!bulkStatus || bulkUpdating}
-            className="h-8 px-4 text-xs"
-          >
-            {bulkUpdating ? 'Updating...' : 'Apply'}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setSelectedIds(new Set())}
-            className="h-8 px-3 text-xs text-muted-foreground"
-          >
-            Clear
-          </Button>
+          <div className="flex gap-2 sm:ml-auto">
+            <Button
+              size="sm"
+              onClick={applyBulkUpdate}
+              disabled={!bulkStatus || bulkUpdating}
+              className="h-8 px-4 text-xs"
+            >
+              {bulkUpdating ? 'Updating...' : 'Apply'}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedIds(new Set())}
+              className="h-8 px-3 text-xs text-muted-foreground"
+            >
+              Clear
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="bg-card rounded-2xl border overflow-hidden">
+      <div className="hidden md:block bg-card rounded-2xl border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -199,9 +202,62 @@ export default function AdminOrders() {
                 ))
               )}
             </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
+            </table>
+            </div>
+            </div>
+
+            {/* Mobile order cards */}
+            <div className="md:hidden space-y-3">
+            {isLoading ? (
+            <div className="p-8 text-center text-muted-foreground bg-card rounded-2xl border">Loading...</div>
+            ) : filtered.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground bg-card rounded-2xl border">No orders found</div>
+            ) : (
+            filtered.map(order => (
+            <div key={order.id} className={`bg-card rounded-2xl border p-4 space-y-3 ${selectedIds.has(order.id) ? 'ring-2 ring-primary/30' : ''}`}>
+             <div className="flex items-start justify-between gap-2">
+               <div className="flex items-center gap-2">
+                 <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleOne(order.id)} />
+                 <span className="font-semibold">{order.order_number}</span>
+                 <StatusBadge status={order.status} />
+               </div>
+               <span className="font-bold">${order.total?.toFixed(2)}</span>
+             </div>
+             <div className="grid grid-cols-2 gap-y-1 text-sm">
+               <span className="text-muted-foreground">Customer</span>
+               <span className="text-right truncate ml-2">{order.customer_name}</span>
+               <span className="text-muted-foreground">Store</span>
+               <span className="text-right truncate ml-2">{order.store_name}</span>
+               <span className="text-muted-foreground">ID Verified</span>
+               <span className={`text-right ${order.id_verified_at_checkout ? 'text-emerald-600' : 'text-red-500'}`}>
+                 {order.id_verified_at_checkout ? '✓ Yes' : '✗ No'}
+               </span>
+               <span className="text-muted-foreground">Date</span>
+               <span className="text-right text-muted-foreground">
+                 {order.created_date ? format(new Date(order.created_date), 'MMM d') : ''}
+               </span>
+             </div>
+             <Select
+               value={order.status}
+               onValueChange={(val) => updateMutation.mutate({ id: order.id, data: { status: val } })}
+             >
+               <SelectTrigger className="h-9 text-xs">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 {statuses.map(s => <SelectItem key={s} value={s} className="capitalize text-xs">{s.replace(/_/g, ' ')}</SelectItem>)}
+               </SelectContent>
+             </Select>
+             <OrderChat
+               orderId={order.id}
+               orderNumber={order.order_number}
+               senderRole="store"
+               senderName="Admin"
+             />
+            </div>
+            ))
+            )}
+            </div>
+            </div>
+            );
+            }

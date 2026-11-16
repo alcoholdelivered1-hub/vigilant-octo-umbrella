@@ -1,10 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
     const payload = await req.json();
-
     const order = payload.data;
     const oldData = payload.old_data;
 
@@ -61,7 +63,7 @@ Great news! You've been assigned a delivery that qualifies for a mileage bonus.
 🛣️ Miles over threshold: ${extraMiles.toFixed(1)} miles (${distanceMiles.toFixed(1)} – 7)
 💵 Mileage Bonus: +$${bonusPay.toFixed(2)} (extra $1.00/mile over 7 miles)
 
-This bonus is paid directly to you on top of your standard $4.75 delivery fee${order.tip > 0 ? ` and the $${parseFloat(order.tip).toFixed(2)} customer tip` : ''}.
+This bonus is paid directly to you on top of your standard $3.00 delivery fee${order.tip > 0 ? ` and the $${parseFloat(order.tip).toFixed(2)} customer tip` : ''}.
 
 Deliver to: ${order.delivery_address}
 

@@ -19,7 +19,7 @@ const docs = [
   {
     icon: FileText,
     title: 'Retail Partner Agreement',
-    desc: 'Third-Party Alcohol Delivery Agreement between Alcohol Delivered, LLC and licensed retailers. Covers roles, fees, compliance obligations, and signatures.',
+    desc: 'Third-Party Alcohol Delivery Agreement between Alcohol Delivered LLC and licensed retailers. Covers roles, fees, compliance obligations, and signatures.',
     path: '/retailer-contract',
     color: 'bg-blue-100 text-blue-700',
     tag: 'Legal Contract',
@@ -95,7 +95,7 @@ export default function LegalDocuments() {
         </div>
         <h1 className="font-display text-3xl font-bold">Legal Documents</h1>
         <p className="text-muted-foreground max-w-xl mx-auto text-sm leading-relaxed">
-          All legal, compliance, and regulatory documentation for <strong>Alcohol Delivered, LLC</strong>.
+          All legal, compliance, and regulatory documentation for <strong>Alcohol Delivered LLC</strong>.
           This collection is intended for attorney review and Arkansas ABC compliance purposes.
         </p>
       </div>
@@ -108,7 +108,7 @@ export default function LegalDocuments() {
               <Wine className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-lg">Alcohol Delivered, LLC</p>
+              <p className="font-bold text-lg">Alcohol Delivered LLC</p>
               <p className="text-primary-foreground/70 text-sm">Pine Bluff, Arkansas · Jefferson County</p>
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function LegalDocuments() {
         <ul className="text-xs text-amber-700 space-y-1.5 list-disc list-inside mt-2">
           <li>The Retail Partner Agreement (Section 2) specifically references Arkansas ABC compliance requirements for third-party delivery permits.</li>
           <li>All deliveries are geo-fenced to wet counties and legally permitted hours per AR ABC Title 3.</li>
-          <li>Dual age verification occurs at checkout (DOB confirmation) and at delivery (in-person driver ID inspection).</li>
+          <li>Dual age verification occurs at checkout (digital ID upload + AI verification) and at delivery (driver scan).</li>
           <li>ID verification records are maintained in the compliance dashboard for ABC inspection.</li>
           <li>Driver training program is required before any driver can go active on the platform.</li>
           <li>Platform does not hold title to or sell alcohol — retailer remains seller of record at all times.</li>
@@ -169,7 +169,7 @@ export default function LegalDocuments() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground pb-4">
-        © 2026 Alcohol Delivered, LLC · Pine Bluff, AR · Confidential — for authorized review only
+        © 2026 Alcohol Delivered LLC · Pine Bluff, AR · Confidential — for authorized review only
       </p>
     </div>
   );

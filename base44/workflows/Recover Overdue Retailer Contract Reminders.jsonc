@@ -1,0 +1,47 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "Hourly recovery for earlier contract requests and failed reminder deliveries. Only requests at least 48 hours old with no digital submission or signed upload qualify. Uses the same per-request, per-recipient delivery receipts as the 48-hour workflow, preventing duplicate reminders. Processes up to five eligible retailers per run.",
+  "name": "Recover Overdue Retailer Contract Reminders",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "recover_overdue_contract_reminders",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "recover_reminders": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendContractReminders",
+            "args": {
+              "reminder_type": "contract_48h"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Recover overdue contract reminders",
+            "description": "Recheck submissions, retry unsent reminders"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "autoDispatchOrder",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "When a new Order is created with status 'pending', automatically assign the nearest available driver based on GPS distance and vehicle capacity.",
+      "entity_name": "Order",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Auto-Dispatch Nearest Driver on New Order"
+    }
+  ]
+}

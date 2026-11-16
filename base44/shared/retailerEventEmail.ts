@@ -1,0 +1,26 @@
+const APP_URL = 'https://alcohol-delivered.biz';
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+
+export function retailerEventEmail(store, event) {
+  const live = event.type === 'live', reminder = event.type === 'contract_reminder';
+  const approved = event.status === 'approved';
+  const title = reminder ? 'Please sign your retailer agreement' : live ? 'Your store status is Live' : approved ? 'Your review is approved' : 'Corrections are needed';
+  const summary = reminder ? `We have not received a submitted retailer agreement for ${store.name}, and at least 48 hours have passed since our initial request.` : live ? `${store.name} has changed to Live in Alcohol Delivered.` : `${event.label} for ${store.name} has been reviewed.`;
+  const subject = reminder ? `${store.name}: reminder to sign your retailer agreement` : live ? `${store.name}: now Live` : `${store.name}: ${event.label} ${approved ? 'approved' : 'needs correction'}`;
+  const setup = `${APP_URL}/onboarding?store_id=${encodeURIComponent(store.id)}`;
+  const agreement = `${APP_URL}/retailer-contract?store_id=${encodeURIComponent(store.id)}`;
+  const storefront = `${APP_URL}/stores/${encodeURIComponent(store.id)}`;
+  const next = reminder ? 'Please have your owner or authorized representative review your store-specific agreement, sign it, and submit it securely. Sign in with your saved retailer contact email. You can also upload a signed copy through your onboarding tracker. Reply to this email if you need help completing this step.' : live
+    ? (store.is_active === true ? 'Open your Store Dashboard, keep notifications enabled during operating hours, confirm inventory and shelf prices, and review payment status before preparing each order.' : 'Your recorded status is Live, but ordering is currently paused. Contact Alcohol Delivered before accepting new orders.')
+    : approved ? 'This review is complete. Open your retailer setup to see the remaining requirements. Document approval alone does not activate your store or enable orders.' : 'Open retailer setup, read the review feedback, and upload or submit a corrected version. Your original submission remains preserved.';
+  const note = live || reminder ? '' : String(event.note || 'Open your setup tracker for the review details.').slice(0,1500);
+  const text = `${title}\n${summary}\n\n${note}\n\n${next}\n\n${reminder ? `Review and sign your agreement: ${agreement}\n` : ''}Retailer setup: ${setup}\n${reminder ? '' : `Storefront progress: ${storefront}\n`}${live ? `Store Dashboard: ${APP_URL}/store/dashboard\n` : ''}Reply to this email if you need help. Do not email credentials, banking details or identity documents.`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(subject)}</title></head><body style="margin:0;background:#f6f7f9;font-family:'DM Sans',Arial,sans-serif;color:#0f1729"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px">
+    <tr><td style="padding:24px 32px;background:#0f1729;color:#ffffff"><img src="https://media.base44.com/images/public/69cf025b60e5f22c0c72f042/0c398d505_Untitled_Artwork.jpg" width="56" alt="Alcohol Delivered" style="display:block;margin-bottom:12px"><strong style="font-size:20px">Alcohol Delivered</strong></td></tr>
+    <tr><td style="padding:32px"><h1 style="margin:0 0 12px;font-family:'Playfair Display',Arial,sans-serif;font-size:28px">${title}</h1><p style="margin:0;color:#6b7280;line-height:1.6">${escapeHtml(summary)}</p></td></tr>
+    ${note ? `<tr><td style="padding:24px 32px;background:#f6f7f9"><h2 style="font-family:'Playfair Display',Arial,sans-serif;font-size:18px;margin:0 0 12px">Review feedback</h2><p style="margin:0;line-height:1.6;overflow-wrap:anywhere">${escapeHtml(note).replace(/\n/g,'<br>')}</p></td></tr>` : ''}
+    <tr><td style="padding:32px"><p style="margin:0 0 24px;line-height:1.6">${escapeHtml(next)}</p><a href="${reminder ? agreement : live ? `${APP_URL}/store/dashboard` : setup}" style="display:inline-block;padding:14px 24px;border-radius:12px;background:#0f1729;color:#ffffff;text-decoration:none;font-weight:bold">${reminder ? 'Review and sign agreement' : live ? 'Open Store Dashboard' : 'Open retailer setup'}</a><p style="margin:24px 0 0;font-size:14px">${reminder ? `<a href="${setup}" style="color:#0f1729">Open onboarding tracker to upload a signed copy</a>` : `<a href="${storefront}" style="color:#0f1729">View your storefront progress</a>${live ? ` · <a href="${setup}" style="color:#0f1729">Setup records</a>` : ''}`}</p></td></tr>
+    <tr><td style="padding:24px 32px;background:#f6f7f9;color:#6b7280;font-size:13px;line-height:1.6">Reply to this email for help. Use secure setup forms for documents. Do not email passwords, banking details or identity documents.</td></tr>
+    </table></td></tr></table></body></html>`;
+  return { subject:subject.replace(/[\r\n]/g,' ').slice(0,250), html, text };
+}

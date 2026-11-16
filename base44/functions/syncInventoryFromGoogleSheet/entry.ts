@@ -116,10 +116,10 @@ Deno.serve(async (req) => {
       storeById[s.id] = s;
     }
 
-    // Index products by store_id + name + brand + pack_size for fast lookup
+    // Index products by store_id + name + brand for fast lookup
     const productIndex = {};
     for (const p of products) {
-      const key = `${p.store_id}|${(p.name || '').toLowerCase()}|${(p.brand || '').toLowerCase()}|${(p.pack_size || 'Single').toLowerCase()}`;
+      const key = `${p.store_id}|${(p.name || '').toLowerCase()}|${(p.brand || '').toLowerCase()}`;
       productIndex[key] = p;
     }
 
@@ -148,15 +148,14 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const packSize = (row.pack_size || 'Single').toLowerCase();
-        const key = `${store.id}|${row.product_name.toLowerCase()}|${(row.brand || '').toLowerCase()}|${packSize}`;
+        const key = `${store.id}|${row.product_name.toLowerCase()}|${(row.brand || '').toLowerCase()}`;
         const existing = productIndex[key];
         if (!existing) {
           notFound++;
           continue;
         }
 
-        // Build update payload — only price, stock_quantity, in_stock, pack_size, volume, abv
+        // Build update payload — only price, stock_quantity, in_stock, volume, abv
         const changes = {};
         const price = parseFloat(row.price);
         if (!isNaN(price) && existing.price !== price) changes.price = price;
@@ -171,7 +170,6 @@ Deno.serve(async (req) => {
           if (existing.in_stock !== inStock) changes.in_stock = inStock;
         }
 
-        if (row.pack_size && existing.pack_size !== row.pack_size) changes.pack_size = row.pack_size;
         if (row.volume && existing.volume !== row.volume) changes.volume = row.volume;
         if (row.abv) {
           const abv = parseFloat(row.abv);

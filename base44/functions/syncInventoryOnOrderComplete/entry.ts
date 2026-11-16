@@ -1,17 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
 
     const payload = await req.json();
 
-    // Must be an automation event payload or called by admin
-    if (!payload.event) {
-        const user = await base44.auth.me().catch(() => null);
-        if (user?.role !== 'admin') {
-            return Response.json({ error: 'Forbidden' }, { status: 403 });
-        }
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const order = payload.data;
 

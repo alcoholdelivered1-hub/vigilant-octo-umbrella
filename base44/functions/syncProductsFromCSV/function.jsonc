@@ -1,0 +1,4 @@
+{
+  "name": "syncProductsFromCSV",
+  "entry": "entry.ts"
+}

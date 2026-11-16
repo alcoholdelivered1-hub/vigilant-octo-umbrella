@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 // Store the spreadsheet ID once created (persisted via a known sheet name lookup)
 const SHEET_TITLE = 'SipSwift Orders';
@@ -49,8 +50,13 @@ async function getOrCreateSpreadsheet(accessToken) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const payload = await req.json();
 
+    // Admin only: platform workflow/automation calls resolve to an authorized identity,
+    // and a direct caller must be a signed-in admin.
+    const access = await assertAdmin(base44);
+    if (!access.authorized) return access.response;
+
+    const payload = await req.json();
     const order = payload.data;
     if (!order) {
       return Response.json({ error: 'No order data in payload' }, { status: 400 });

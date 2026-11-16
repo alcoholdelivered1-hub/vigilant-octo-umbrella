@@ -1,0 +1,76 @@
+{
+  "name": "RetailerApprovalAlert",
+  "type": "object",
+  "properties": {
+    "event_key": {
+      "type": "string"
+    },
+    "recipient_user_id": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "source_entity": {
+      "type": "string"
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "step_label": {
+      "type": "string"
+    },
+    "push_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sending",
+        "sent",
+        "failed"
+      ]
+    },
+    "claim_id": {
+      "type": "string"
+    },
+    "push_sent_at": {
+      "type": "string"
+    },
+    "push_error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_key",
+    "recipient_user_id",
+    "store_id",
+    "source_entity",
+    "source_id",
+    "step_label",
+    "push_status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "name": "RetailerNotificationDelivery",
+  "type": "object",
+  "properties": {
+    "event_key": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string"
+    },
+    "recipient": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sending",
+        "sent",
+        "failed"
+      ]
+    },
+    "claim_id": {
+      "type": "string"
+    },
+    "claimed_at": {
+      "type": "string"
+    },
+    "gmail_message_id": {
+      "type": "string"
+    },
+    "sent_at": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_key",
+    "store_id",
+    "recipient",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

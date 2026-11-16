@@ -1,0 +1,40 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "automate_retailer_signup",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "process_signup": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processRetailerSignup",
+            "args": {
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Process retailer signup",
+            "description": "Email retailer + admin, create onboarding record"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Automate Retailer Signup Intake",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "RetailerSignup"
+    }
+  },
+  "description": "When a retailer submits the signup form, send them a confirmation email, alert the team, and create an onboarding record automatically."
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Weekly Driver Payout Approval Queue",
+  "description": "Every Friday at 6 AM CT, calculates the current Mon\u2013Fri pay period for each driver (delivery fees, tips, mileage surcharge) and creates pending DriverPayout records flagged for admin approval. Does not pay out \u2014 an admin reviews and approves on the Payouts Overview page.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 * * 5",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "weekly_driver_payout_approval",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "calculate_payouts": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "calculateWeeklyDriverPayouts",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Calculate weekly driver payouts",
+            "description": "Creates pending payout records for approval"
+          }
+        }
+      }
+    ]
+  }
+}

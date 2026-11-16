@@ -1,0 +1,4 @@
+{
+  "name": "syncInventoryFromGoogleSheet",
+  "entry": "entry.ts"
+}

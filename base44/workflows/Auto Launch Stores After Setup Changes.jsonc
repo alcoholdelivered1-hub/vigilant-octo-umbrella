@@ -1,0 +1,42 @@
+{
+  "name": "Auto Launch Stores After Setup Changes",
+  "description": "Automatically check every retailer awaiting initial launch after store setup changes. Activate only after every required launch check passes; never reactivate a previously live store.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Store",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.onboarding_status | IN(\"pending\", \"invited\", \"contract_sent\", \"contract_signed\", \"inventory_added\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_launch_stores_after_setup_changes",
+      "version": "1.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_and_launch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "retailerGoLive",
+            "args": {
+              "action": "auto_launch",
+              "store_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check and launch stores",
+            "description": "All readiness requirements must pass"
+          }
+        }
+      }
+    ]
+  }
+}

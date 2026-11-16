@@ -1,0 +1,16 @@
+{
+  "name": "notifyFailedIDVerification",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "IDVerification",
+      "event_types": [
+        "create",
+        "update"
+      ],
+      "is_active": false,
+      "name": "Alert on Failed ID Verification"
+    }
+  ]
+}

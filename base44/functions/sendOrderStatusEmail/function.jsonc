@@ -1,0 +1,15 @@
+{
+  "name": "sendOrderStatusEmail",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Order Status Email — Out for Delivery & Delivered"
+    }
+  ]
+}

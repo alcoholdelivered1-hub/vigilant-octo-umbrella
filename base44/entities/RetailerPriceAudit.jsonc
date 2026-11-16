@@ -1,0 +1,62 @@
+{
+  "name": "RetailerPriceAudit",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "old_price": {
+      "type": "number"
+    },
+    "new_price": {
+      "type": "number"
+    },
+    "changed_by_email": {
+      "type": "string"
+    },
+    "change_reason": {
+      "type": "string"
+    },
+    "changed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "store_id",
+    "product_id",
+    "product_name",
+    "old_price",
+    "new_price",
+    "changed_by_email",
+    "changed_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

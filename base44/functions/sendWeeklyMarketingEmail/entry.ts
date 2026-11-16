@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 function toBase64Url(str) {
   const encoder = new TextEncoder();
@@ -33,6 +34,8 @@ function buildMimeMessage({ to, from, subject, htmlBody }) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     // Fetch last 7 days metrics
     const orders = await base44.asServiceRole.entities.Order.list('-created_date', 200);

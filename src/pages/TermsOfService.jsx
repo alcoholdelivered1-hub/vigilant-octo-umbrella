@@ -51,7 +51,7 @@ export default function TermsOfService() {
         <div className="text-center border-b pb-6 space-y-1">
           <p className="text-xs text-gray-500 uppercase tracking-widest">Platform Agreement</p>
           <h2 className="text-2xl font-bold text-gray-900 font-serif">TERMS OF SERVICE</h2>
-          <p className="text-gray-600"><strong>Alcohol Delivered, LLC</strong> · Pine Bluff, Arkansas</p>
+          <p className="text-gray-600"><strong>Alcohol Delivered LLC</strong> · Pine Bluff, Arkansas</p>
           <p className="text-xs text-gray-500">Effective Date: January 1, 2026 · Last Updated: May 2026</p>
         </div>
 
@@ -64,7 +64,7 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="2. DESCRIPTION OF SERVICE">
-          <p>Alcohol Delivered, LLC ("Company," "we," "us") operates a third-party alcohol delivery platform that connects customers with licensed Arkansas alcohol retailers. We are <strong>not</strong> a retailer or seller of alcohol. The licensed retailer is the seller of record for all transactions. We provide technology, logistics coordination, and delivery services only.</p>
+          <p>Alcohol Delivered LLC ("Company," "we," "us") operates a third-party alcohol delivery platform that connects customers with licensed Arkansas alcohol retailers. We are <strong>not</strong> a retailer or seller of alcohol. The licensed retailer is the seller of record for all transactions. We provide technology, logistics coordination, and delivery services only.</p>
           <p className="mt-2">We operate under a valid Arkansas Third-Party Alcohol Delivery Permit as authorized under Arkansas Code Annotated § 3-4-214 and applicable Arkansas Alcoholic Beverage Control (ABC) regulations.</p>
         </Section>
 
@@ -82,7 +82,7 @@ export default function TermsOfService() {
         <Section title="4. AGE VERIFICATION">
           <p>We are required by Arkansas law to verify the age of all customers. This verification occurs in two stages:</p>
           <ol className="list-decimal list-inside space-y-1 mt-2">
-            <li><strong>At Checkout:</strong> You must confirm your date of birth and acknowledge that your ID will be checked at delivery.</li>
+            <li><strong>At Checkout:</strong> You must upload a clear photo of a valid government-issued ID. Our system uses AI-assisted verification to confirm your age and identity.</li>
             <li><strong>At Delivery:</strong> Our driver will inspect your physical government-issued ID before handing over any order. Delivery will be refused if you cannot present a valid ID, if the ID does not match the order, or if you appear intoxicated.</li>
           </ol>
           <p className="mt-2">Accepted ID types: Arkansas Driver's License, State-issued ID card, US Passport or Passport Card, US Military ID. All IDs must be current and not expired.</p>
@@ -134,12 +134,12 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="9. LIMITATION OF LIABILITY">
-          <p>To the maximum extent permitted by Arkansas law, Alcohol Delivered, LLC shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of this platform. Our total liability to you for any claim shall not exceed the amount you paid for the specific order giving rise to the claim.</p>
+          <p>To the maximum extent permitted by Arkansas law, Alcohol Delivered LLC shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of this platform. Our total liability to you for any claim shall not exceed the amount you paid for the specific order giving rise to the claim.</p>
           <p className="mt-2">We are not responsible for: product quality (the responsibility of the licensed retailer), delays caused by traffic or weather, or damages resulting from your own negligence or misuse of the platform.</p>
         </Section>
 
         <Section title="10. INTELLECTUAL PROPERTY">
-          <p>All content on this platform including design, text, graphics, logos, and software is the property of Alcohol Delivered, LLC and is protected by applicable intellectual property laws. You may not copy, reproduce, or distribute any content without prior written consent.</p>
+          <p>All content on this platform including design, text, graphics, logos, and software is the property of Alcohol Delivered LLC and is protected by applicable intellectual property laws. You may not copy, reproduce, or distribute any content without prior written consent.</p>
         </Section>
 
         <Section title="11. PRIVACY">
@@ -157,7 +157,7 @@ export default function TermsOfService() {
         <Section title="14. CONTACT">
           <p>For questions about these Terms, contact us at:</p>
           <div className="mt-2 bg-gray-50 rounded-xl p-4">
-            <p className="font-semibold">Alcohol Delivered, LLC</p>
+            <p className="font-semibold">Alcohol Delivered LLC</p>
             <p>Pine Bluff, Arkansas</p>
             <p>Phone: 870-209-9109</p>
             <p>Website: alcohol-delivered.biz</p>
@@ -165,7 +165,7 @@ export default function TermsOfService() {
         </Section>
 
         <p className="text-center text-xs text-gray-400 pt-4 border-t">
-          © 2026 Alcohol Delivered, LLC · Pine Bluff, AR · All rights reserved.
+          © 2026 Alcohol Delivered LLC · Pine Bluff, AR · All rights reserved.
         </p>
       </div>
     </div>

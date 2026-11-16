@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import TrainingModule from '@/components/driver/TrainingModule';
+import DriverSignupServiceCity from '@/components/driver/DriverSignupServiceCity';
 import {
   User, Upload, Car, BookOpen, CheckCircle2, ArrowLeft, ArrowRight,
   Loader2, ShieldCheck, FileText
@@ -54,10 +54,15 @@ function FileUploadField({ label, hint, value, onChange, accept = 'image/*,appli
     if (!file) return;
     setUploading(true);
     setFileName(file.name);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    onChange(file_url);
-    setUploading(false);
-    toast.success(`${label} uploaded!`);
+    try {
+      const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file });
+      onChange(file_uri);
+      toast.success(`${label} uploaded!`);
+    } catch (error) {
+      toast.error(error.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const inputId = label.replace(/\s+/g, '-').toLowerCase();
@@ -90,13 +95,9 @@ function FileUploadField({ label, hint, value, onChange, accept = 'image/*,appli
 
 export default function DriverSignup() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoadingAuth } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [trainingComplete, setTrainingComplete] = useState(false);
-  const [checkingExisting, setCheckingExisting] = useState(
-    localStorage.getItem('driver_signup_complete') !== 'true'
-  );
 
   const [form, setForm] = useState({
     name: '',
@@ -112,48 +113,10 @@ export default function DriverSignup() {
     vehicle_model: '',
     vehicle_color: '',
     vehicle_plate: '',
+    service_city: new URLSearchParams(window.location.search).get('city') || '',
   });
 
-  // Pre-fill from the authenticated user and redirect existing drivers
-  // to the portal so they never see the signup form again.
-  useEffect(() => {
-    // localStorage says signup is done — redirect immediately
-    if (localStorage.getItem('driver_signup_complete') === 'true') {
-      navigate('/driver', { replace: true });
-      return;
-    }
-    if (isLoadingAuth) return;
-    if (!isAuthenticated || !user) {
-      setCheckingExisting(false);
-      return;
-    }
-    // Pre-fill name + email from the auth account so they always match
-    setForm(prev => ({
-      ...prev,
-      name: prev.name || user.full_name || '',
-      email: prev.email || user.email || '',
-    }));
-    // If a Driver record already exists for this email, go straight to the portal
-    base44.entities.Driver.filter({ email: user.email })
-      .then((drivers) => {
-        if (drivers.length > 0) {
-          navigate('/driver', { replace: true });
-        } else {
-          setCheckingExisting(false);
-        }
-      })
-      .catch(() => setCheckingExisting(false));
-  }, [isAuthenticated, user, isLoadingAuth, navigate]);
-
   const update = (field, val) => setForm(prev => ({ ...prev, [field]: val }));
-
-  if (checkingExisting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-      </div>
-    );
-  }
 
   const calcAge = (dob) => {
     const birth = new Date(dob);
@@ -166,7 +129,7 @@ export default function DriverSignup() {
 
   const validate = () => {
     if (step === 1) {
-      if (!form.name || !form.email || !form.phone || !form.date_of_birth) { toast.error('Please fill in all fields'); return false; }
+      if (!form.name || !form.email || !form.phone || !form.date_of_birth || !form.service_city.trim()) { toast.error('Please fill in all fields'); return false; }
       if (!/\S+@\S+\.\S+/.test(form.email)) { toast.error('Invalid email address'); return false; }
       if (calcAge(form.date_of_birth) < 21) { toast.error('You must be 21+ to be a delivery driver'); return false; }
     }
@@ -191,38 +154,27 @@ export default function DriverSignup() {
 
   const submit = async () => {
     setLoading(true);
-    // Guard against duplicates: if a Driver record already exists for this
-    // email, go to the portal instead of creating another record.
     try {
-      const existing = await base44.entities.Driver.filter({ email: form.email });
-      if (existing.length > 0) {
-        setLoading(false);
-        toast.success('You already have a driver account! Taking you to the portal...');
-        navigate('/driver');
-        return;
-      }
-    } catch {
-      // non-fatal — proceed to create
+      const user = await base44.auth.me();
+      if (user.email?.toLowerCase() !== form.email.trim().toLowerCase()) throw new Error('Use the email you signed in with for your driver application.');
+      const existing = await base44.entities.Driver.filter({ email: user.email }, '-created_date', 1);
+      if (existing.length) throw new Error('You already have a driver profile. Complete your setup in the Driver Portal instead.');
+      const vehicleInfo = `${form.vehicle_year} ${form.vehicle_make} ${form.vehicle_model} — ${form.vehicle_color} — Plate: ${form.vehicle_plate}`;
+      await base44.entities.Driver.create({
+        name: form.name, email: user.email, phone: form.phone,
+        date_of_birth: form.date_of_birth, license_number: form.license_number,
+        license_file_uri: form.license_image_url, insurance_file_uri: form.insurance_url,
+        vehicle_info: vehicleInfo, service_city: form.service_city.trim(),
+        training_completed: false, status: 'offline', is_active: false, total_deliveries: 0,
+        description: trainingComplete ? 'Applicant completed the in-app ABC training quiz. Admin must verify before activation.' : '',
+      });
+      toast.success('Application submitted for review. Real background-check verification is required before approval.');
+      setStep(6);
+    } catch (error) {
+      toast.error(error.message || 'Unable to submit your application. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    const vehicleInfo = `${form.vehicle_year} ${form.vehicle_make} ${form.vehicle_model} — ${form.vehicle_color} — Plate: ${form.vehicle_plate}`;
-    await base44.entities.Driver.create({
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      date_of_birth: form.date_of_birth,
-      license_number: form.license_number,
-      vehicle_info: vehicleInfo,
-      training_completed: true,
-      training_completed_date: new Date().toISOString().split('T')[0],
-      status: 'offline',
-      is_active: false, // pending admin approval
-      total_deliveries: 0,
-    });
-    setLoading(false);
-    localStorage.setItem('driver_signup_complete', 'true');
-    toast.success('Application submitted! Taking you to the Driver Portal...');
-    // Go directly to the portal — the availability toggle is there
-    navigate('/driver');
   };
 
   // Success screen
@@ -235,7 +187,7 @@ export default function DriverSignup() {
           </div>
           <h1 className="font-display text-2xl font-bold">Application Submitted!</h1>
           <p className="text-muted-foreground leading-relaxed">
-            Thank you, <strong>{form.name}</strong>! Your driver application has been received. Our team will review your documents and activate your account within 1–2 business days.
+            Thank you, <strong>{form.name}</strong>! Your driver application has been received. Our team must review your documents and training and verify a real background check before approving you to deliver.
           </p>
           <div className="bg-card border rounded-2xl p-5 text-left space-y-2 text-sm">
             <p className="font-semibold">What happens next?</p>
@@ -261,25 +213,7 @@ export default function DriverSignup() {
             <ArrowLeft className="w-4 h-4" /> Back to Driver Portal
           </Link>
           <h1 className="font-display text-3xl font-bold">Become a Driver</h1>
-          <p className="text-muted-foreground mt-1">Apply to deliver for Alcohol Delivered — Serving All of Central Arkansas</p>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-left">
-            {[
-              { icon: '💰', title: 'Keep 100% of Tips', desc: 'Every tip is yours' },
-              { icon: '🛣️', title: '$1/Mile Bonus', desc: 'On deliveries over 7 miles' },
-              { icon: '📅', title: 'Set Your Own Hours', desc: 'Drive whenever you want' },
-              { icon: '🎓', title: 'Free ABC Certification', desc: 'Career-building credential' },
-              { icon: '⚡', title: 'Priority Dispatch', desc: 'Top-rated drivers get first picks' },
-              { icon: '💸', title: 'Weekly Payouts', desc: 'Fast Stripe transfers' },
-            ].map((perk) => (
-              <div key={perk.title} className="bg-card border rounded-lg p-2.5 flex items-start gap-2">
-                <span className="text-lg leading-none">{perk.icon}</span>
-                <div>
-                  <p className="text-xs font-bold">{perk.title}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">{perk.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-muted-foreground mt-1">Apply to deliver for Alcohol Delivered in Arkansas. Driver approval and retailer readiness are required.</p>
         </div>
 
         <ProgressBar step={step} />
@@ -294,23 +228,14 @@ export default function DriverSignup() {
                 <p className="text-sm text-muted-foreground mt-0.5">Must be 21+ to qualify</p>
               </div>
               <div className="space-y-3">
+                <DriverSignupServiceCity value={form.service_city} onChange={city => update('service_city', city)} />
                 <div className="space-y-1.5">
                   <Label>Full Name *</Label>
                   <Input value={form.name} onChange={e => update('name', e.target.value)} placeholder="Jane Smith" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Email Address *</Label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={e => update('email', e.target.value)}
-                    placeholder="jane@example.com"
-                    readOnly={!!user?.email}
-                    disabled={!!user?.email}
-                  />
-                  {user?.email && (
-                    <p className="text-xs text-muted-foreground">Locked to your account email</p>
-                  )}
+                  <Input type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="jane@example.com" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Phone Number *</Label>

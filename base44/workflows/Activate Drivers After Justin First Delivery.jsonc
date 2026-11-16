@@ -1,0 +1,40 @@
+{
+  "name": "Activate Drivers After Justin First Delivery",
+  "description": "When Justin Bess completes his first delivery, activates all vetted inactive drivers and sends them go-live emails.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"delivered\" and .trigger.old_data.status != \"delivered\" and .trigger.data.driver_email == \"jpbsandiego@yahoo.com\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "activate_drivers_on_golive",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "activate_drivers": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "activateDriversOnGoLive",
+            "args": {
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Activate all drivers",
+            "description": "Activate vetted drivers and send go-live emails"
+          }
+        }
+      }
+    ]
+  }
+}

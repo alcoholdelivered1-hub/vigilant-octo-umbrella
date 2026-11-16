@@ -1,0 +1,41 @@
+{
+  "trigger": {
+    "condition": "${ .trigger.data.has_new_non_draft_messages == true }",
+    "config": {
+      "trigger_type": "connector",
+      "events": [
+        "mailbox"
+      ],
+      "integration_type": "gmail",
+      "resource_id": null
+    }
+  },
+  "description": "Match incoming business Gmail messages to retailer contacts and notify the admin store dashboard.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "alert_admin_on_retailer_gmail_replies",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "receive_email": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "receiveRetailerEmail",
+            "args": {
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Notify admin of retailer email",
+            "description": "Match saved retailer contact addresses"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Alert Admin On Retailer Gmail Replies"
+}

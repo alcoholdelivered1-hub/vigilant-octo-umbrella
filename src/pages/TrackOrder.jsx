@@ -2,12 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Package, Store, Truck, CheckCircle2, Clock, MapPin, ShieldCheck, ChevronRight, RefreshCw, XCircle, Loader2 } from 'lucide-react';
+import { Package, Store, Truck, CheckCircle2, Clock, MapPin, ShieldCheck, ChevronRight, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
 import DriverMap from '@/components/track/DriverMap';
 
 const STAGES = [
@@ -91,7 +90,6 @@ export default function TrackOrder() {
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
   const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [cancelling, setCancelling] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: order, isLoading, dataUpdatedAt } = useQuery({
@@ -152,21 +150,6 @@ export default function TrackOrder() {
   const currentStage = STAGES.find(s => s.key === order.status);
   const isDelivered = order.status === 'delivered';
   const isInTransit = order.status === 'in_transit';
-  const canCancel = ['pending', 'confirmed'].includes(order.status);
-
-  const handleCancel = async () => {
-    if (!window.confirm('Cancel this order? This cannot be undone.')) return;
-    setCancelling(true);
-    try {
-      await base44.entities.Order.update(order.id, { status: 'cancelled' });
-      queryClient.invalidateQueries({ queryKey: ['track-order', orderId] });
-      toast.success('Order cancelled.');
-    } catch (err) {
-      toast.error('Could not cancel order. Please try again.');
-    } finally {
-      setCancelling(false);
-    }
-  };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
@@ -365,18 +348,6 @@ export default function TrackOrder() {
           )}
         </div>
       </div>
-
-      {canCancel && (
-        <Button
-          variant="outline"
-          className="w-full rounded-xl text-destructive border-destructive/30 hover:bg-destructive/5"
-          onClick={handleCancel}
-          disabled={cancelling}
-        >
-          {cancelling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
-          Cancel Order
-        </Button>
-      )}
 
       <Link to="/orders">
         <Button variant="outline" className="w-full rounded-xl">← Back to My Orders</Button>

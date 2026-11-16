@@ -1,21 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Auth: must be authenticated via platform (admin user or automation)
-    const authenticated = await base44.auth.isAuthenticated().catch(() => false);
-    if (!authenticated) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    const currentUser = await base44.auth.me().catch(() => null);
-    if (currentUser && currentUser.role !== 'admin') {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     let body = {};
     try { body = await req.json(); } catch (_) {}
+
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
     
     const targetDate = body.date || (() => {
       const d = new Date();

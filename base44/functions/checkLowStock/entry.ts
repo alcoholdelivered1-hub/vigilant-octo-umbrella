@@ -1,38 +1,13 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
-
-function buildRawEmail(to, subject, html, fromName) {
-  const fromHeader = `${fromName} <alcohol.delivered1@gmail.com>`;
-  const message = [
-    `From: ${fromHeader}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: text/html; charset=UTF-8`,
-    ``,
-    html,
-  ].join('\r\n');
-  return btoa(unescape(encodeURIComponent(message)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-async function sendGmail(accessToken, to, subject, html, fromName) {
-  const raw = buildRawEmail(to, subject, html, fromName);
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ raw }),
-  });
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Gmail API error: ${res.status} — ${errBody}`);
-  }
-}
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 const LOW_STOCK_THRESHOLD = 5; // Alert when stock drops at or below this number
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const managerEmail = Deno.env.get('STORE_MANAGER_EMAIL');
     if (!managerEmail) {
@@ -104,11 +79,12 @@ Deno.serve(async (req) => {
         </div>
       </div>`;
 
-    // Use Gmail to send — manager/store emails may not be registered app users
-    const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
-
     // 1. Notify the central store manager
-    await sendGmail(accessToken, managerEmail, `⚠️ Low Stock Alert — ${lowStockProducts.length} product${lowStockProducts.length > 1 ? 's' : ''} need restocking`, emailBody, 'Alcohol Delivered');
+    await base44.asServiceRole.integrations.Core.SendEmail({
+      to: managerEmail,
+      subject: `⚠️ Low Stock Alert — ${lowStockProducts.length} product${lowStockProducts.length > 1 ? 's' : ''} need restocking`,
+      body: emailBody,
+    });
 
     // 2. Also email each store directly with only their own low-stock items
     const storeNotified = [];
@@ -141,7 +117,11 @@ Deno.serve(async (req) => {
             <p style="margin-top:24px;font-size:12px;color:#999">Automated alert from Alcohol Delivered · Threshold: ≤${LOW_STOCK_THRESHOLD} units</p>
           </div>
         </div>`;
-      await sendGmail(accessToken, store.email, `⚠️ Low Stock Alert — ${products.length} item${products.length > 1 ? 's' : ''} need restocking at ${store.name}`, storeBody, 'Alcohol Delivered');
+      await base44.asServiceRole.integrations.Core.SendEmail({
+        to: store.email,
+        subject: `⚠️ Low Stock Alert — ${products.length} item${products.length > 1 ? 's' : ''} need restocking at ${store.name}`,
+        body: storeBody,
+      });
       storeNotified.push(store.name);
     }
 

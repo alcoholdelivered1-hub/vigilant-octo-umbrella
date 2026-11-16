@@ -1,21 +1,30 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
-import { haversineDistance, PINE_BLUFF_LAT, PINE_BLUFF_LON } from '../../shared/geoUtils.ts';
-import { sendSms, normalizePhone } from '../../shared/twilioSms.ts';
-import { sendFCMToTokens } from '../../shared/fcmUtils.ts';
+import { assertAdmin } from '../../shared/authGuard.ts';
+import { attachDriverCompliance } from '../../shared/driverAnnualCompliance.ts';
+import { driverIsProductionQualified } from '../../shared/verifiedTaxDriverReadiness.ts';
 
-Deno.serve(async (req) => {
+const PINE_BLUFF_LAT = 34.2284;
+const PINE_BLUFF_LON = -92.0032;
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 3959;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
 
-    // Accept entity automation payload OR admin call
-    const isAutomation = body?.event?.type !== undefined;
-    if (!isAutomation) {
-      const user = await base44.auth.me();
-      if (user?.role !== 'admin') {
-        return Response.json({ error: 'Forbidden' }, { status: 403 });
-      }
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const order = body?.data;
     const oldData = body?.old_data;
@@ -51,7 +60,8 @@ Deno.serve(async (req) => {
     const orderLon = order.delivery_longitude || order.order_longitude || PINE_BLUFF_LON;
 
     // Sort drivers by distance
-    const sorted = drivers
+    const qualifiedDrivers = (await attachDriverCompliance(base44, drivers)).filter(driverIsProductionQualified);
+    const sorted = qualifiedDrivers
       .map(driver => {
         const dLat = driver.current_latitude || PINE_BLUFF_LAT;
         const dLon = driver.current_longitude || PINE_BLUFF_LON;
@@ -66,11 +76,10 @@ Deno.serve(async (req) => {
     const claimUrl = `${appUrl}/driver?claim=${order.id}`;
 
     let notified = 0;
-    let smsSent = 0;
     for (const { driver, distance } of toNotify) {
       if (!driver.email) continue;
 
-      const payEstimate = `$4.75${order.tip > 0 ? ` + $${order.tip.toFixed(2)} tip = $${(4.75 + order.tip).toFixed(2)} total` : ' delivery fee + any tip'}`;
+      const payEstimate = `$3.00${order.tip > 0 ? ` + $${order.tip.toFixed(2)} tip = $${(3 + order.tip).toFixed(2)} total` : ' delivery fee + any tip'}`;
       const distStr = distance.toFixed(1);
       const itemCount = order.items?.length || 0;
 
@@ -108,44 +117,12 @@ Deno.serve(async (req) => {
 
       notified++;
       console.log(`[notifyNearestDriver] Notified driver ${driver.name} (${driver.email}) — ${distStr} mi away`);
-
-      // Instant SMS alert (in addition to email) so drivers can react fast
-      const phone = normalizePhone(driver.phone || '');
-      if (phone) {
-        const smsBody = `🚚 New delivery available — ${order.order_number} at ${order.store_name}. ~${distStr} mi away. Pay est: ${payEstimate}. Open the driver app to claim it fast!`;
-        const smsRes = await sendSms(phone, smsBody);
-        if (smsRes.success) {
-          smsSent++;
-          console.log(`[notifyNearestDriver] SMS sent to ${driver.name} (${phone})`);
-        } else {
-          console.warn(`[notifyNearestDriver] SMS failed for ${driver.name}: ${smsRes.error}`);
-        }
-      }
-
-      // High-priority push — shows a banner even when the driver is inside
-      // DoorDash/Instacart/another gig app, so they don't miss the order.
-      try {
-        const tokens = (await base44.asServiceRole.entities.FCMToken.filter({ user_email: driver.email })).map(t => t.token);
-        if (tokens.length > 0) {
-          const pushResults = await sendFCMToTokens(
-            tokens,
-            `🚚 New Delivery — ${payEstimate}`,
-            `${order.store_name} · ${itemCount} item(s) · ~${distStr} mi · #${order.order_number}`,
-            { order_id: order.id || '', order_number: order.order_number || '', type: 'new_delivery', claim_url }
-          );
-          const delivered = pushResults.filter(r => r.success).length;
-          console.log(`[notifyNearestDriver] Push to ${driver.name}: ${delivered}/${tokens.length} device(s)`);
-        }
-      } catch (err) {
-        console.warn(`[notifyNearestDriver] Push failed for ${driver.name}: ${err.message}`);
-      }
     }
 
     return Response.json({
       success: true,
       order_number: order.order_number,
       drivers_notified: notified,
-      sms_sent: smsSent,
       candidates: toNotify.map(({ driver, distance }) => ({
         name: driver.name,
         email: driver.email,
@@ -156,4 +133,4 @@ Deno.serve(async (req) => {
     console.error('[notifyNearestDriver] Error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}

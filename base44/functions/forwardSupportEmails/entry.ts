@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 function buildRawEmail(to, subject, body) {
   const message = [
@@ -26,7 +27,7 @@ const ROUTING_RULES = [
   {
     name: 'Pine Bluff / Jefferson County',
     keywords: ['pine bluff', 'jefferson county', 'jefferson co', 'pine bluff store'],
-    extra_recipients: [],
+    extra_recipients: ['Drew.Cousins@dfa.gov'],
   },
   {
     name: 'Little Rock / Pulaski County',
@@ -46,7 +47,7 @@ const ROUTING_RULES = [
   {
     name: 'Compliance / Legal',
     keywords: ['compliance', 'license', 'violation', 'abc board', 'act 157', 'regulatory', 'legal'],
-    extra_recipients: ['Drew.Cousins@dfa.arkansas.gov'],
+    extra_recipients: ['Drew.Cousins@dfa.gov'],
   },
   {
     name: 'Driver Complaint',
@@ -75,6 +76,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const messageIds = body.data?.new_message_ids ?? [];
     if (messageIds.length === 0) {

@@ -1,8 +1,28 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
-import { getGmailSender, sendGmail } from '../../shared/emailUtils.ts';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { assertAdmin } from '../../shared/authGuard.ts';
+
+function escapeHtml(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function buildRawEmail(to, subject, htmlBody, senderEmail) {
+  const message = [
+    `From: Alcohol Delivered — Admin Alerts <${senderEmail}>`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/html; charset=UTF-8`,
+    ``,
+    htmlBody,
+  ].join('\r\n');
+  return btoa(unescape(encodeURIComponent(message)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
+  const { authorized, response } = await assertAdmin(base44);
+  if (!authorized) return response;
   const payload = await req.json();
 
   const store = payload.data;
@@ -10,10 +30,12 @@ Deno.serve(async (req) => {
     return Response.json({ skipped: true, reason: 'No store data in payload' });
   }
 
-  const secretEmail = Deno.env.get('STORE_MANAGER_EMAIL')?.trim();
-  const managerEmail = (secretEmail && secretEmail.includes('@')) ? secretEmail : 'madhouserecords@yahoo.com';
+  const managerEmail = Deno.env.get('STORE_MANAGER_EMAIL');
+  if (!managerEmail) {
+    return Response.json({ error: 'STORE_MANAGER_EMAIL secret not set' }, { status: 500 });
+  }
 
-  const subject = `🏪 New Retailer Onboarded — ${store.name}`;
+  const subject = `🏪 New Retailer Onboarded — ${escapeHtml(store.name)}`;
   const htmlBody = `
 <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
   <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5494 100%); border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;">
@@ -24,27 +46,27 @@ Deno.serve(async (req) => {
   <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 10px 0; color: #6b7280; width: 35%;">Store Name</td>
-      <td style="padding: 10px 0; font-weight: 600;">${store.name}</td>
+      <td style="padding: 10px 0; font-weight: 600;">${escapeHtml(store.name)}</td>
     </tr>
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 10px 0; color: #6b7280;">ABC License #</td>
-      <td style="padding: 10px 0;">${store.license_number || 'Not provided'}</td>
+      <td style="padding: 10px 0;">${escapeHtml(store.license_number || 'Not provided')}</td>
     </tr>
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 10px 0; color: #6b7280;">Address</td>
-      <td style="padding: 10px 0;">${store.address || ''}, ${store.city || ''}, ${store.county || ''} County</td>
+      <td style="padding: 10px 0;">${escapeHtml(store.address || '')}, ${escapeHtml(store.city || '')}, ${escapeHtml(store.county || '')} County</td>
     </tr>
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 10px 0; color: #6b7280;">Phone</td>
-      <td style="padding: 10px 0;">${store.phone || 'Not provided'}</td>
+      <td style="padding: 10px 0;">${escapeHtml(store.phone || 'Not provided')}</td>
     </tr>
     <tr style="border-bottom: 1px solid #e5e7eb;">
       <td style="padding: 10px 0; color: #6b7280;">Contact Email</td>
-      <td style="padding: 10px 0;">${store.email || 'Not provided'}</td>
+      <td style="padding: 10px 0;">${escapeHtml(store.email || 'Not provided')}</td>
     </tr>
     <tr>
       <td style="padding: 10px 0; color: #6b7280;">Placement Tier</td>
-      <td style="padding: 10px 0;">${store.placement_tier || 'standard'}</td>
+      <td style="padding: 10px 0;">${escapeHtml(store.placement_tier || 'standard')}</td>
     </tr>
   </table>
 
@@ -57,8 +79,18 @@ Deno.serve(async (req) => {
   </p>
 </div>`.trim();
 
-  const { accessToken, senderEmail } = await getGmailSender(base44);
-  const sendRes = await sendGmail(accessToken, managerEmail, senderEmail, subject, htmlBody);
+  const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
+  const profileRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const { emailAddress } = await profileRes.json();
+
+  const raw = buildRawEmail(managerEmail, subject, htmlBody, emailAddress);
+  const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw }),
+  });
 
   if (!sendRes.ok) {
     const errText = await sendRes.text();

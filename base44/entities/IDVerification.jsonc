@@ -30,7 +30,11 @@
     },
     "id_image_url": {
       "type": "string",
-      "description": "Uploaded ID image URL"
+      "description": "Legacy public image reference. Never populated by new verification flows; existing public files require removal."
+    },
+    "id_image_file_uri": {
+      "type": "string",
+      "description": "Private ID photo reference. Temporary signed URLs are used only during verification and never persisted."
     },
     "date_of_birth": {
       "type": "string",
@@ -60,16 +64,9 @@
   ],
   "rls": {
     "create": {
-      "$or": [
-        {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "read": {
       "$or": [

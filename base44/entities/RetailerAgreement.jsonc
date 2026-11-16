@@ -1,0 +1,147 @@
+{
+  "name": "RetailerAgreement",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "contact_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted"
+      ],
+      "default": "draft"
+    },
+    "terms_version": {
+      "type": "string"
+    },
+    "terms_hash": {
+      "type": "string"
+    },
+    "terms_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "configuration_id": {
+      "type": "string"
+    },
+    "supersedes_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "number",
+      "default": 0
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "submitted_by": {
+      "type": "string"
+    },
+    "file_uri": {
+      "type": "string"
+    },
+    "email_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notification_error": {
+      "type": "string"
+    },
+    "document_id": {
+      "type": "string"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "pending_review",
+        "approved",
+        "needs_correction"
+      ]
+    },
+    "review_note": {
+      "type": "string"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string"
+    },
+    "platform_signature": {
+      "type": "string"
+    },
+    "platform_name": {
+      "type": "string"
+    },
+    "platform_title": {
+      "type": "string"
+    },
+    "platform_date": {
+      "type": "string"
+    },
+    "countersigned_file_uri": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "store_name",
+    "contact_emails",
+    "fields",
+    "status",
+    "terms_version"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

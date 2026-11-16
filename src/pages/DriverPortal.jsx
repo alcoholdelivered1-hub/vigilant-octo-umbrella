@@ -1,46 +1,43 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Truck, MapPin, ShieldCheck, Package, XCircle, AlertTriangle, Loader2, BookOpen, Search, DollarSign, TrendingUp, Map, Navigation, Camera } from 'lucide-react';
+import { Truck, MapPin, ShieldCheck, Package, CheckCircle2, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import StatusBadge from '@/components/shared/StatusBadge';
 import OrderChat from '@/components/messaging/OrderChat';
 import DriverTraining from '@/components/driver/DriverTraining';
 import IDScanner from '@/components/driver/IDScanner';
-import DeliveryProofCapture from '@/components/driver/DeliveryProofCapture';
-import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import LiveGPSBroadcaster from '@/components/driver/LiveGPSBroadcaster';
-import AutoArrivalNotifier from '@/components/driver/AutoArrivalNotifier';
 import DriverWelcome from '@/components/driver/DriverWelcome';
+import DriverNav from '@/components/driver/DriverNav';
 import DriverAvailabilityToggle from '@/components/driver/DriverAvailabilityToggle';
 import DriverLocationMap from '@/components/driver/DriverLocationMap';
 import BackgroundCheck from '@/components/driver/BackgroundCheck';
 import AvailableOrders from '@/components/driver/AvailableOrders';
-import PickupVerification from '@/components/driver/PickupVerification';
 import DriverEarnings from '@/pages/DriverEarnings';
 import DriverSummary from '@/components/driver/DriverSummary';
 import DriverDeliveryMap from '@/components/driver/DriverDeliveryMap';
 import { toast } from 'sonner';
 import FCMSetup from '@/components/notifications/FCMSetup';
+import InstallAppPrompt from '@/components/driver/InstallAppPrompt';
 import ShiftChecklist from '@/components/driver/ShiftChecklist';
+import DriverServiceArea from '@/components/driver/DriverServiceArea';
+import DriverAuditDocuments from '@/components/driver/DriverAuditDocuments';
 import { FIREBASE_CONFIG, FIREBASE_VAPID_KEY } from '@/lib/firebaseConfig';
 
 export default function DriverPortal() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState('deliveries'); // 'checklist' | 'welcome' | 'summary' | 'map' | 'deliveries' | 'training'
+  const [tab, setTab] = useState('checklist'); // 'checklist' | 'welcome' | 'summary' | 'map' | 'deliveries' | 'training'
   const [refusalReason, setRefusalReason] = useState('');
-  const [refusalIdPhoto, setRefusalIdPhoto] = useState(null);
-  const [uploadingIdPhoto, setUploadingIdPhoto] = useState(false);
-  const { url: refusalPhotoSigned } = useSignedImageUrl(refusalIdPhoto);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [claimResult, setClaimResult] = useState(null);
   const [claiming, setClaiming] = useState(false);
-  const [arrivingOrderId, setArrivingOrderId] = useState(null);
-  const [mapFullscreenTrigger, setMapFullscreenTrigger] = useState(0);
-  const [idVerified, setIdVerified] = useState({});
+  const [verifiedHandoffs, setVerifiedHandoffs] = useState({});
+  const [completedOffer, setCompletedOffer] = useState(null);
 
   const { data: user } = useQuery({
     queryKey: ['me'],
@@ -72,38 +69,26 @@ export default function DriverPortal() {
       .finally(() => setClaiming(false));
   }, []);
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['driver-orders'],
-    queryFn: () => base44.entities.Order.list('-created_date', 50),
+  const { data: orders = [], isLoading, isError: ordersError, refetch: reloadOrders } = useQuery({
+    queryKey: ['driver-orders', user?.email],
+    queryFn: () => base44.entities.Order.filter({ driver_email: user.email, status: { $in: ['confirmed', 'preparing', 'pickup_ready', 'in_transit'] } }, '-created_date', 100),
+    enabled: Boolean(user?.email),
     refetchInterval: 10000,
   });
 
-  // Cache stores so we can navigate the driver to the correct pickup store via GPS
-  const { data: stores = [] } = useQuery({
-    queryKey: ['driver-stores-cache'],
-    queryFn: () => base44.entities.Store.list('name', 200),
-    staleTime: 10 * 60 * 1000,
-  });
-  const storeMap = Object.fromEntries(stores.map(s => [s.id, s]));
-
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
-    onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({ queryKey: ['driver-orders'] });
-      const previous = queryClient.getQueryData(['driver-orders']);
-      queryClient.setQueryData(['driver-orders'], (old = []) =>
-        old.map(o => o.id === id ? { ...o, ...data } : o)
-      );
-      return { previous };
+    mutationFn: async ({ id, action, refusal_reason, verification, handoff_confirmed }) => {
+      const { data } = await base44.functions.invoke('updateDriverOrderStatus', { order_id: id, action, refusal_reason, verification, handoff_confirmed });
+      if (data?.success !== true) throw new Error(data?.error || 'The order update was not confirmed.');
+      return data;
     },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(['driver-orders'], context.previous);
+    onError: (error) => {
+      toast.error(error?.response?.data?.error || error?.message || 'Driver order update failed.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['driver-orders'] });
       setSelectedOrder(null);
       setRefusalReason('');
-      setRefusalIdPhoto(null);
     },
   });
 
@@ -111,92 +96,41 @@ export default function DriverPortal() {
   const pendingPickup = orders.filter(o => o.status === 'pickup_ready');
   const inTransit = orders.filter(o => o.status === 'in_transit');
 
-  const handleArrived = async (order) => {
-    setArrivingOrderId(order.id);
-    try {
-      const res = await base44.functions.invoke('notifyStoreDriverArrived', { order_id: order.id });
-      if (res.data?.success) {
-        toast.success(`📍 ${order.store_name} notified you've arrived!`);
-      } else {
-        toast.error(res.data?.reason || 'Could not notify store');
-      }
-    } catch (e) {
-      toast.error('Failed to notify store');
-    }
-    setArrivingOrderId(null);
+  const handlePickup = (order) => {
+    updateMutation.mutate({ id: order.id, action: 'pickup' }, { onSuccess: () => toast.success('Pickup confirmed, delivery started') });
   };
 
-
-  const handleDelivered = async (order, verification, proof) => {
-    updateMutation.mutate({
-      id: order.id,
-      data: {
-        status: 'delivered',
-        id_verified_at_delivery: true,
-        delivery_confirmed_at: new Date().toISOString(),
-        delivery_signature_url: verification?.id_image_uri || null,
-        delivery_photo_url: proof?.photoUrl || null,
-        delivery_confirmed_latitude: proof?.latitude ?? null,
-        delivery_confirmed_longitude: proof?.longitude ?? null,
-      }
-    });
-    setIdVerified((prev) => { const next = { ...prev }; delete next[order.id]; return next; });
-
-    const user = await base44.auth.me();
-    await base44.entities.IDVerification.create({
-      customer_email: order.customer_email,
-      customer_name: order.customer_name,
-      order_id: order.id,
-      verification_type: 'delivery',
-      is_verified: true,
-      verified_by: user.email,
-      id_image_url: verification?.id_image_uri || null,
-      date_of_birth: verification?.extracted?.date_of_birth || null,
-      id_type: verification?.extracted?.id_type || null,
-      notes: verification?.manual_override
-        ? 'Manually approved by driver after physical ID check'
-        : verification?.extracted
-          ? `Age: ${verification.extracted.age} | Name match: ${verification.extracted.full_name}`
-          : null,
-    });
-
-    toast.success('Delivery confirmed with ID verification');
+  const handleVerified = (order, verification) => {
+    if (!verification?.verified_at_delivery || verification.manual_override) {
+      toast.error('A passing ID verification is required before handoff.');
+      return;
+    }
+    setVerifiedHandoffs(previous => ({ ...previous, [order.id]: verification }));
   };
 
-  const handleIdPhotoUpload = async (file) => {
-    if (!file) return;
-    setUploadingIdPhoto(true);
-    try {
-      const res = await base44.integrations.Core.UploadPrivateFile({ file });
-      setRefusalIdPhoto(res.file_uri);
-      toast.success('ID photo attached');
-    } catch (e) {
-      toast.error('Failed to upload ID photo');
-    } finally {
-      setUploadingIdPhoto(false);
-    }
+  const handleDelivered = (order) => {
+    const verification = verifiedHandoffs[order.id];
+    if (!verification) return toast.error('Verify the recipient’s ID first.');
+    updateMutation.mutate({ id: order.id, action: 'deliver', verification, handoff_confirmed: true }, {
+      onSuccess: () => {
+        setCompletedOffer({ orderNumber: order.order_number, earnings: 3 + Number(order.tip || 0) + Number(order.mileage_surcharge || 0) });
+        setVerifiedHandoffs(previous => { const next = { ...previous }; delete next[order.id]; return next; });
+        toast.success('Delivery completed');
+      },
+    });
   };
 
   const handleRefuse = (order) => {
-    if (!refusalReason && !refusalIdPhoto) {
-      toast.error('Upload an ID photo or select a reason code to refuse delivery');
+    if (!refusalReason) {
+      toast.error('Please provide a reason for refusal');
       return;
     }
-    updateMutation.mutate({
-      id: order.id,
-      data: {
-        status: 'refused',
-        refusal_reason: refusalReason || 'See attached ID photo',
-        refusal_id_photo_url: refusalIdPhoto || null,
-      }
-    });
-    toast.success('Delivery refused and recorded');
+    updateMutation.mutate({ id: order.id, action: 'refuse', refusal_reason: refusalReason }, { onSuccess: () => toast.success('Delivery refused and recorded') });
   };
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <LiveGPSBroadcaster driverId={user?.id} driverEmail={user?.email} />
-      <AutoArrivalNotifier orders={orders} />
 
       {/* Claim in progress / result banner */}
       {claiming && (
@@ -220,7 +154,11 @@ export default function DriverPortal() {
             <p className="text-sm text-muted-foreground">Manage your active deliveries</p>
           </div>
         </div>
-
+        <Link to="/driver/signup">
+          <Button size="sm" variant="outline" className="gap-1.5">
+            <ShieldCheck className="w-4 h-4" /> Apply to Drive
+          </Button>
+        </Link>
       </div>
       <div className="mb-6">
         <FCMSetup
@@ -230,64 +168,19 @@ export default function DriverPortal() {
         />
       </div>
 
-      {/* Tabs */}
-      {/* Daily workflow first, then money, then onboarding/setup */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-        <button
-          onClick={() => setTab('welcome')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'welcome' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          🏠 Home
-        </button>
-        <button
-          onClick={() => setTab('checklist')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'checklist' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          ✅ Pre-Shift
-        </button>
-        <button
-          onClick={() => setTab('available')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'available' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          <Search className="w-4 h-4" /> Find Orders
-        </button>
-        <button
-          onClick={() => setTab('deliveries')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'deliveries' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          <Truck className="w-4 h-4" /> My Deliveries
-        </button>
-        <button
-          onClick={() => setTab('map')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'map' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          <Map className="w-4 h-4" /> Route Map
-        </button>
-        <button
-          onClick={() => setTab('summary')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'summary' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          <TrendingUp className="w-4 h-4" /> Summary
-        </button>
-        <button
-          onClick={() => setTab('earnings')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'earnings' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          <DollarSign className="w-4 h-4" /> Earnings
-        </button>
-        <button
-          onClick={() => setTab('training')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'training' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          <BookOpen className="w-4 h-4" /> Training
-        </button>
-        <button
-          onClick={() => setTab('background')}
-          className={`flex-shrink-0 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${tab === 'background' ? 'bg-primary text-primary-foreground' : 'bg-card border text-muted-foreground hover:text-foreground'}`}
-        >
-          <ShieldCheck className="w-4 h-4" /> BGC
-        </button>
-      </div>
+      <InstallAppPrompt />
+      <DriverServiceArea email={user?.email} />
+
+      {completedOffer && <div className="mb-5 rounded-2xl border bg-card p-5 text-center space-y-3" role="status">
+        <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-600" />
+        <h2 className="text-xl font-bold">Delivery complete</h2>
+        <p className="text-sm text-muted-foreground">Order {completedOffer.orderNumber}</p>
+        <p className="text-3xl font-bold">${completedOffer.earnings.toFixed(2)}</p>
+        <p className="text-xs text-muted-foreground">Estimated fee, tip and mileage. See Earnings for payout status.</p>
+        <Button className="w-full" onClick={() => { setCompletedOffer(null); setTab('available'); }}>Continue delivering</Button>
+      </div>}
+
+      <DriverNav tab={tab} setTab={setTab} />
 
       {tab === 'checklist' && (
         <ShiftChecklist userEmail={user?.email} onComplete={() => setTab('welcome')} />
@@ -302,16 +195,17 @@ export default function DriverPortal() {
       )}
 
       {tab === 'summary' && <DriverSummary userEmail={user?.email} />}
-      {tab === 'map' && <DriverDeliveryMap orders={orders} userEmail={user?.email} autoFullscreen={mapFullscreenTrigger} />}
-      {tab === 'available' && <AvailableOrders onAccepted={() => { setTab('map'); setMapFullscreenTrigger(t => t + 1); }} />}
-      {tab === 'training' && <DriverTraining userEmail={user?.email} onComplete={() => setTab('deliveries')} />}
+      {tab === 'map' && <DriverDeliveryMap orders={orders} userEmail={user?.email} />}
+      {tab === 'available' && <AvailableOrders onAccepted={() => setTab('deliveries')} />}
+      {tab === 'documents' && <DriverAuditDocuments userEmail={user?.email} />}
+      {tab === 'training' && <DriverTraining onComplete={() => setTab('deliveries')} />}
       {tab === 'background' && <BackgroundCheck onComplete={() => setTab('welcome')} />}
       {tab === 'earnings' && <DriverEarnings />}
 
       {tab === 'deliveries' && <>
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-6 flex items-center gap-2 text-sm text-emerald-800">
         <span className="text-lg">💵</span>
-        <span><strong>You keep 100% of all tips</strong> — plus your $4.75 delivery fee per order.</span>
+        <span><strong>You keep 100% of all tips</strong> — plus your $3.00 delivery fee per order.</span>
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-6">
@@ -331,6 +225,8 @@ export default function DriverPortal() {
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading orders...</div>
+      ) : ordersError ? (
+        <div role="alert" className="py-10 text-center space-y-3"><p className="text-destructive">Your deliveries could not be loaded.</p><Button variant="outline" onClick={() => reloadOrders()}>Try again</Button></div>
       ) : activeOrders.length === 0 ? (
         <div className="text-center py-16">
           <Package className="w-12 h-12 text-muted-foreground/30 mx-auto" />
@@ -358,12 +254,12 @@ export default function DriverPortal() {
                     <span className="truncate">{order.delivery_address}</span>
                   </div>
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.delivery_latitude && order.delivery_longitude ? `${order.delivery_latitude},${order.delivery_longitude}` : order.delivery_address)}&travelmode=driving`}
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.delivery_address)}&travelmode=driving`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-shrink-0 flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
                   >
-                    <Navigation className="w-3.5 h-3.5" />
+                    <MapPin className="w-3.5 h-3.5" />
                     Navigate
                   </a>
                 </div>
@@ -372,21 +268,18 @@ export default function DriverPortal() {
                   <span>{order.items?.length || 0} items · {order.customer_name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-500" />
-                  <span className="text-amber-700 text-xs font-medium">Customer confirmed age 21+ at checkout — verify government-issued photo ID at delivery</span>
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <span className="text-emerald-700 text-xs font-medium">ID verified at checkout – verify again at delivery</span>
                 </div>
               </div>
 
               <Separator className="my-4" />
 
               {order.status === 'pickup_ready' && (
-                <PickupVerification
-                  order={order}
-                  user={user}
-                  onConfirmed={() => {
-                    queryClient.invalidateQueries({ queryKey: ['driver-orders'] });
-                  }}
-                />
+                <Button onClick={() => handlePickup(order)} className="w-full" disabled={updateMutation.isPending}>
+                  <Truck className="w-4 h-4 mr-2" />
+                  Confirm Pickup & Start Delivery
+                </Button>
               )}
 
               {order.status === 'in_transit' && (
@@ -404,27 +297,21 @@ export default function DriverPortal() {
                     </ul>
                   </div>
 
-                  <IDScanner
+                  {verifiedHandoffs[order.id] ? <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                    <p className="font-semibold text-emerald-800">Step 3 of 3 · Hand order to recipient</p>
+                    <p className="text-sm">Confirm the verified recipient is present and not intoxicated. Hand them the order in person, then mark it delivered.</p>
+                    <Button className="w-full" onClick={() => handleDelivered(order)} disabled={updateMutation.isPending}>Handed to recipient · Complete delivery</Button>
+                    <Button variant="outline" className="w-full" onClick={() => setVerifiedHandoffs(previous => { const next = { ...previous }; delete next[order.id]; return next; })}>Verify again</Button>
+                  </div> : <IDScanner
                     orderId={order.id}
                     orderCustomerName={order.customer_name}
                     onVerified={(verification) => {
-                      setIdVerified((prev) => ({ ...prev, [order.id]: verification }));
-                      toast.success('ID verified — now capture drop-off proof (GPS + photo) to complete delivery.');
+                      handleVerified(order, verification);
                     }}
                     onBlocked={(reason) => {
                       toast.error(reason || 'ID verification failed — refuse delivery');
                     }}
-                  />
-
-                  {idVerified[order.id] && (
-                    <DeliveryProofCapture
-                      order={order}
-                      disabled={updateMutation.isPending}
-                      onComplete={(proof) => {
-                        handleDelivered(order, idVerified[order.id], proof);
-                      }}
-                    />
-                  )}
+                  />}
 
                   <div className="flex gap-2">
                     <Button variant="destructive" onClick={() => setSelectedOrder(selectedOrder === order.id ? null : order.id)} className="w-full" disabled={updateMutation.isPending}>
@@ -434,40 +321,14 @@ export default function DriverPortal() {
                   </div>
 
                   {selectedOrder === order.id && (
-                    <div className="space-y-3">
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                        <p className="text-xs font-semibold text-amber-800 mb-1">Audit requirement (ABC)</p>
-                        <p className="text-xs text-amber-700">You must <strong>either</strong> upload a photo of the refused customer's ID <strong>or</strong> select a reason code below. This is logged for state compliance audit.</p>
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">ID photo (if available)</label>
-                        <div className="mt-1 flex items-center gap-3">
-                          <label className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-input rounded-lg py-3 text-xs font-medium text-muted-foreground cursor-pointer hover:bg-muted/50">
-                            {uploadingIdPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                            {uploadingIdPhoto ? 'Uploading…' : refusalIdPhoto ? 'Photo attached ✓' : 'Upload / take ID photo'}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              className="hidden"
-                              onChange={(e) => handleIdPhotoUpload(e.target.files?.[0])}
-                              disabled={uploadingIdPhoto}
-                            />
-                          </label>
-                          {refusalIdPhoto && refusalPhotoSigned && (
-                            <img src={refusalPhotoSigned} alt="Refused ID" className="w-14 h-14 rounded-lg object-cover border" />
-                          )}
-                        </div>
-                      </div>
-
+                    <div className="space-y-2">
                       <Textarea
-                        placeholder="Reason for refusal (optional if ID photo attached)..."
+                        placeholder="Reason for refusal (required)..."
                         value={refusalReason}
                         onChange={(e) => setRefusalReason(e.target.value)}
                       />
                       <Select onValueChange={(val) => setRefusalReason(val)}>
-                        <SelectTrigger className="text-xs"><SelectValue placeholder="Quick reason code..." /></SelectTrigger>
+                        <SelectTrigger className="text-xs"><SelectValue placeholder="Quick reason..." /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Customer under 21">Customer under 21</SelectItem>
                           <SelectItem value="Invalid/expired ID">Invalid/expired ID</SelectItem>
@@ -477,64 +338,18 @@ export default function DriverPortal() {
                           <SelectItem value="Customer not present">Customer not present</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button
-                        variant="destructive"
-                        onClick={() => handleRefuse(order)}
-                        className="w-full"
-                        disabled={updateMutation.isPending || uploadingIdPhoto || (!refusalReason && !refusalIdPhoto)}
-                      >
+                      <Button variant="destructive" onClick={() => handleRefuse(order)} className="w-full" disabled={updateMutation.isPending}>
                         {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                         Confirm Refusal
                       </Button>
-                      {!refusalReason && !refusalIdPhoto && (
-                        <p className="text-xs text-red-600 text-center">Upload an ID photo or select a reason code to continue.</p>
-                      )}
                     </div>
                   )}
                 </div>
               )}
 
-              {['confirmed', 'preparing', 'pickup_ready'].includes(order.status) && (() => {
-                const store = order.store_id ? storeMap[order.store_id] : null;
-                const storeDest = store?.latitude && store?.longitude
-                  ? `${store.latitude},${store.longitude}`
-                  : store
-                    ? `${store.address}, ${store.city}, ${store.state} ${store.zip_code || ''}`.trim()
-                    : order.store_name;
-                return (
-                  <div className="space-y-2">
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(storeDest)}&travelmode=driving`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-2.5 rounded-lg transition-colors"
-                    >
-                      <Navigation className="w-4 h-4" />
-                      Navigate to Store
-                    </a>
-                    {store?.address && (
-                      <p className="text-xs text-muted-foreground text-center truncate">
-                        📍 {store.name} — {store.address}, {store.city}
-                      </p>
-                    )}
-                    {['confirmed', 'preparing'].includes(order.status) && (
-                      <Button
-                        onClick={() => handleArrived(order)}
-                        disabled={arrivingOrderId === order.id}
-                        className="w-full bg-blue-600 hover:bg-blue-700"
-                      >
-                        {arrivingOrderId === order.id ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <MapPin className="w-4 h-4 mr-2" />
-                        )}
-                        I've Arrived at Store
-                      </Button>
-                    )}
-                    <p className="text-xs text-muted-foreground text-center">Tap "Navigate to Store" for GPS directions, then "I've Arrived" when you reach the store.</p>
-                  </div>
-                );
-              })()}
+              {['confirmed', 'preparing'].includes(order.status) && (
+                <p className="text-xs text-muted-foreground text-center">Waiting for store to prepare order...</p>
+              )}
 
               <div className="mt-3 pt-3 border-t space-y-2">
                 <p className="text-xs text-muted-foreground font-medium">Store chat</p>

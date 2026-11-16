@@ -1,0 +1,7 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+export default function SetupReviewControls({ onReview, busy, signedDocument = false, testReview = false }) {
+  const [note,setNote] = useState(''), [both,setBoth] = useState(false);
+  return <div className="space-y-3 rounded-xl border p-3"><p className="text-sm font-semibold">Administrator review</p><label className="block text-sm">Verification source or correction instructions (required)<Textarea value={note} onChange={e => setNote(e.target.value)} maxLength={1500} disabled={busy} className="mt-1" /></label>{(signedDocument || testReview) && <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={both} onChange={e => setBoth(e.target.checked)} className="h-5 w-5" />{testReview ? 'I verified an actual sandbox payment, received retailer notification and completed delivery handoff against the referenced evidence.' : 'I reviewed both parties’ actual signatures and the approved commercial terms in this copy.'}</label>}<div className="flex flex-wrap gap-2"><Button type="button" disabled={busy || note.trim().length < 10 || ((signedDocument || testReview) && !both)} onClick={() => onReview('approved',note,both)}>Approve reviewed evidence</Button><Button type="button" variant="outline" disabled={busy || note.trim().length < 10} onClick={() => onReview('needs_correction',note)}>Request correction</Button></div></div>;
+}

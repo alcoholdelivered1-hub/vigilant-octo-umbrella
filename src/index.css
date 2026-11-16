@@ -99,6 +99,39 @@
   }
 }
 
+/* Colonial's boutique palette is local to its storefront; other stores keep their theme. */
+.colonial-storefront,
+.dark .colonial-storefront {
+  --background: 40 38% 96%;
+  --foreground: 345 25% 16%;
+  --card: 40 42% 98%;
+  --card-foreground: 345 25% 16%;
+  --primary: 345 47% 23%;
+  --primary-foreground: 40 38% 96%;
+  --secondary: 35 34% 78%;
+  --secondary-foreground: 345 47% 23%;
+  --muted: 35 26% 90%;
+  --muted-foreground: 335 9% 42%;
+  --border: 35 22% 82%;
+  --ring: 345 47% 23%;
+}
+
+/* Liquor King's clean storefront palette stays local to this retailer. */
+.liquor-king-storefront,
+.dark .liquor-king-storefront {
+  --background: 0 0% 99%;
+  --foreground: 195 23% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 195 23% 14%;
+  --primary: 176 44% 25%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 168 18% 94%;
+  --muted-foreground: 190 10% 40%;
+  --border: 170 14% 87%;
+  --input: 170 14% 87%;
+  --ring: 176 44% 25%;
+}
+
 /* Driver maneuver tooltip on live map */
 .driver-maneuver-tooltip {
   border: none !important;
@@ -109,33 +142,68 @@
 }
 .driver-maneuver-tooltip::before { display: none !important; }
 
-/* Prevent long-press text-selection handles on chrome UI elements */
-header,
-nav.fixed.bottom-0,
-[data-status-badge] {
-  @apply select-none;
+/* Keep the dark map style without an API-key-dependent tile provider. */
+.live-map-dark-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(90%);
 }
 
-/* Print styles for call sheet */
-@media print {
-  @page { size: portrait; margin: 0.5in; }
-  html, body { height: auto !important; overflow: visible !important; background: white !important; }
-  .print\:hidden { display: none !important; }
-  .print\:fit-page {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 11px !important;
-  }
-  /* Override the app shell's height/overflow constraints so all content prints */
-  .h-screen, .flex-1, main, .overflow-hidden, .overflow-y-auto {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-}
-
+/* Safe area utilities */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .pt-safe { padding-top: env(safe-area-inset-top); }
 .mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+
+/* Offset the desktop app's center 48px left while keeping its left edge visible. */
+@media screen and (min-width: 1024px) {
+  #root {
+    width: calc(100% - 96px);
+    margin-left: 0;
+    margin-right: 96px;
+  }
+}
+
+/* The real application scroll surface lives inside the fixed app shell. */
+.app-scroll-container {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS/Android accessibility: readable text and 44px interactive targets. */
+@media (max-width: 767px), (pointer: coarse) {
+  .text-xs,
+  [class*="text-[10px]"],
+  [class*="text-[11px]"],
+  [class*="text-[12px]"],
+  [class*="text-[13px]"] {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  button,
+  a[role="button"],
+  [role="button"],
+  input[type="button"],
+  input[type="submit"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Slow attention pulse for new retailer replies; text remains steady. */
+.retailer-reply-attention {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.1);
+  animation: retailer-reply-pulse 2s ease-in-out infinite;
+}
+@keyframes retailer-reply-pulse {
+  0%, 100% {
+    background-color: hsl(var(--primary) / 0.08);
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+  }
+  50% {
+    background-color: hsl(var(--primary) / 0.2);
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.2);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .retailer-reply-attention { animation: none; }
+}

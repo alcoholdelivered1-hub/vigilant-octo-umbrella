@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, ShieldAlert, Search, CheckCircle2, Clock, User, Store, Truck, MapPin, FileText, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const TYPE_CONFIG = {
   id_verification_failed: { label: 'ID Verification Failed', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
@@ -125,17 +126,18 @@ export default function ComplianceIncidents() {
             className="pl-9 rounded-xl"
           />
         </div>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-4 py-2.5 rounded-xl border bg-card text-sm font-medium"
-        >
-          <option value="all">All Types</option>
-          <option value="id_verification_failed">ID Verification Failed</option>
-          <option value="intoxication_refused">Intoxication Refused</option>
-          <option value="minor_attempt">Possible Minor</option>
-          <option value="other_refusal">Other Refusal</option>
-        </select>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger aria-label="Filter by incident type" className="min-w-[11rem] px-4 py-2.5 rounded-xl border bg-card text-sm font-medium">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="id_verification_failed">ID Verification Failed</SelectItem>
+            <SelectItem value="intoxication_refused">Intoxication Refused</SelectItem>
+            <SelectItem value="minor_attempt">Possible Minor</SelectItem>
+            <SelectItem value="other_refusal">Other Refusal</SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="outline" onClick={exportCSV} className="rounded-xl shrink-0">
           <Download className="w-4 h-4 mr-1.5" /> Export CSV
         </Button>

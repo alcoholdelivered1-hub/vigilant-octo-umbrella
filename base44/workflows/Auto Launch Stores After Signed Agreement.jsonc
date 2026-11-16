@@ -1,0 +1,42 @@
+{
+  "name": "Auto Launch Stores After Signed Agreement",
+  "description": "Immediately recheck this retailer after a signed agreement is submitted. Preserve all existing production launch gates.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerAgreement",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.store_id != null and .trigger.data.store_id != \"\" and .trigger.data.status == \"submitted\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_launch_stores_after_signed_agreement",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_and_launch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "retailerGoLive",
+            "args": {
+              "action": "auto_launch",
+              "store_id": "${ .trigger.data.store_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check retailer production readiness",
+            "description": "Activate only when all required evidence and payment checks pass"
+          }
+        }
+      }
+    ]
+  }
+}

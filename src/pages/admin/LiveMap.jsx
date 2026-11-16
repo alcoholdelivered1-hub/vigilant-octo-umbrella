@@ -13,30 +13,18 @@ export default function LiveMap() {
   const queryClient = useQueryClient();
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
-  const { data: orders = [], isLoading: ordersLoading, isRefetching: ordersRefetching } = useQuery({
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ['live-map-orders'],
     queryFn: () => base44.entities.Order.filter({ status: { $in: ['in_transit', 'pickup_ready', 'preparing', 'confirmed'] } }),
     refetchInterval: 8000,
+    onSuccess: () => setLastUpdated(new Date()),
   });
 
-  const { data: drivers = [], isLoading: driversLoading, isRefetching: driversRefetching } = useQuery({
+  const { data: drivers = [], isLoading: driversLoading } = useQuery({
     queryKey: ['live-map-drivers'],
     queryFn: () => base44.entities.Driver.filter({ status: { $in: ['available', 'on_delivery'] } }),
     refetchInterval: 8000,
   });
-
-  // Update timestamp whenever data refetches
-  useEffect(() => {
-    if (!ordersLoading && !driversLoading) setLastUpdated(new Date());
-  }, [orders, drivers]);
-
-  const isRefreshing = ordersRefetching || driversRefetching;
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['live-map-orders'] });
-    queryClient.invalidateQueries({ queryKey: ['live-map-drivers'] });
-    setLastUpdated(new Date());
-  };
 
   // Real-time subscriptions
   useEffect(() => {
@@ -78,10 +66,14 @@ export default function LiveMap() {
               <Flame className="w-4 h-4" /> Demand Heatmap
             </Link>
             <button
-              onClick={handleRefresh}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['live-map-orders'] });
+                queryClient.invalidateQueries({ queryKey: ['live-map-drivers'] });
+                setLastUpdated(new Date());
+              }}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border rounded-lg px-3 py-1.5 transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} /> Refresh
+              <RefreshCw className="w-4 h-4" /> Refresh
             </button>
           </div>
         </div>

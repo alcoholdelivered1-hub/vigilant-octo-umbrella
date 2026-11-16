@@ -1,0 +1,9 @@
+{
+  "type": "slack",
+  "scopes": [
+    "channels:read",
+    "chat:write",
+    "users:read",
+    "users:read.email"
+  ]
+}

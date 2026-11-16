@@ -1,0 +1,45 @@
+{
+  "name": "Notify Admin Of Retailer Progress",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/5 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "Every five minutes, notify the administrator of onboarding progress and email each retailer's saved contact about newly completed or recorded steps with the next task and its setup link. Independent retailer delivery state avoids resending unchanged steps; first observations are baselined without historical emails. Existing go-live instructions remain separate.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "notify_admin_of_retailer_progress",
+      "version": "1.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_progress": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerProgress",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email retailer next steps and admin progress",
+            "description": "Notify only when new milestones are recorded"
+          }
+        }
+      }
+    ]
+  }
+}

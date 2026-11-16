@@ -41,22 +41,19 @@ export default function CartDrawer({ open, onClose }) {
                 <div key={item.product_id} className="flex items-center gap-3 bg-muted/40 rounded-xl p-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium leading-tight truncate">{item.product_name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {item.pack_size && item.pack_size !== 'Single' && <span className="text-primary font-medium">{item.pack_size} · </span>}
-                      ${item.price.toFixed(2)} each
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">${item.price.toFixed(2)} each</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                      className="w-7 h-7 min-h-[44px] min-w-[44px] rounded-lg border bg-card flex items-center justify-center hover:bg-muted transition-colors"
+                      className="w-7 h-7 rounded-lg border bg-card flex items-center justify-center hover:bg-muted transition-colors"
                     >
                       {item.quantity === 1 ? <Trash2 className="w-3 h-3 text-destructive" /> : <Minus className="w-3 h-3" />}
                     </button>
                     <span className="text-sm font-semibold w-5 text-center">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                      className="w-7 h-7 min-h-[44px] min-w-[44px] rounded-lg border bg-card flex items-center justify-center hover:bg-muted transition-colors"
+                      className="w-7 h-7 rounded-lg border bg-card flex items-center justify-center hover:bg-muted transition-colors"
                     >
                       <Plus className="w-3 h-3" />
                     </button>

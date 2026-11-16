@@ -1,0 +1,16 @@
+{
+  "name": "notifyNearestDriver",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "When an order status changes to confirmed (and has no driver), notify the 3 closest available drivers by email with a one-click claim link.",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Notify Nearest Driver on Confirmed Order"
+    }
+  ]
+}

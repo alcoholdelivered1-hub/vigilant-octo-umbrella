@@ -1,0 +1,44 @@
+{
+  "name": "Daily Operations Digest",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_operations_digest",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_digest": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "dailyOperationsDigest"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run daily operations digest",
+            "description": "Low-stock alert + daily sales upsert + team report email (revenue, completed orders, compliance incidents)"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Every morning at 8am CT: scans low stock and emails the store manager, upserts per-store DailyReport records for yesterday's delivered orders, and emails the team report \u2014 total revenue, completed orders, store breakdown and compliance incidents \u2014 to all admins plus the store manager. Fully automated, no admin action required.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 8 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

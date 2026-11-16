@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, ShieldCheck } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import StarRating from '@/components/shared/StarRating';
 import { toast } from 'sonner';
+import DriverAnnualCertification from '@/components/driver/DriverAnnualCertification';
+import DriverBackgroundCheckPanel from '@/components/admin/DriverBackgroundCheckPanel';
 
 export default function AdminDrivers() {
   const [open, setOpen] = useState(false);
@@ -80,6 +82,7 @@ export default function AdminDrivers() {
               <th className="text-left p-3 font-medium">Name</th>
               <th className="text-left p-3 font-medium">Contact</th>
               <th className="text-left p-3 font-medium">Status</th>
+              <th className="text-left p-3 font-medium">Background</th>
               <th className="text-left p-3 font-medium">Training</th>
               <th className="text-left p-3 font-medium">Deliveries</th>
               <th className="text-left p-3 font-medium">Avg Rating</th>
@@ -88,9 +91,9 @@ export default function AdminDrivers() {
           </thead>
           <tbody className="divide-y">
             {isLoading ? (
-              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading...</td></tr>
+              <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading...</td></tr>
             ) : drivers.length === 0 ? (
-              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No drivers yet</td></tr>
+              <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No drivers yet</td></tr>
             ) : (
               drivers.map(driver => (
                 <tr key={driver.id} className="hover:bg-muted/30">
@@ -116,16 +119,10 @@ export default function AdminDrivers() {
                     </Select>
                   </td>
                   <td className="p-3">
-                    <div className="flex items-center gap-1.5">
-                      {driver.training_completed ? (
-                        <><ShieldCheck className="w-4 h-4 text-emerald-500" /><span className="text-xs text-emerald-700">Complete</span></>
-                      ) : (
-                        <Switch
-                          checked={driver.training_completed}
-                          onCheckedChange={(val) => updateMutation.mutate({ id: driver.id, data: { training_completed: val, training_completed_date: new Date().toISOString().split('T')[0] } })}
-                        />
-                      )}
-                    </div>
+                    <DriverBackgroundCheckPanel driver={driver} />
+                  </td>
+                  <td className="p-3">
+                    <DriverAnnualCertification driver={driver} />
                   </td>
                   <td className="p-3 font-medium">{driver.total_deliveries || 0}</td>
                   <td className="p-3">

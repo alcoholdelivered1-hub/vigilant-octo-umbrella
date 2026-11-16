@@ -8,9 +8,19 @@
         "id_verification_failed",
         "intoxication_refused",
         "minor_attempt",
+        "driver_blocked",
+        "address_type_refused",
+        "restricted_location_refused",
+        "wet_area_refused",
+        "incomplete_order_data",
+        "incomplete_delivery_data",
         "other_refusal"
       ],
       "description": "Type of compliance incident"
+    },
+    "compliance_rule": {
+      "type": "string",
+      "description": "Rule identifier violated (e.g. 3.25, 3.28, driver_age, driver_felony)"
     },
     "order_id": {
       "type": "string",
@@ -64,6 +74,11 @@
       "format": "date-time",
       "description": "When the incident occurred"
     },
+    "retention_until": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Records retained 3 years per ABC Admin/Enforcement requirements"
+    },
     "is_resolved": {
       "type": "boolean",
       "default": false,
@@ -90,7 +105,6 @@
   },
   "required": [
     "incident_type",
-    "order_id",
     "reason"
   ],
   "rls": {

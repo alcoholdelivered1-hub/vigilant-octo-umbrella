@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import {
-  Camera, CheckCircle2, Upload, Loader2, AlertTriangle,
+  Camera, X, CheckCircle2, Upload, Loader2,
   ShieldCheck, ShieldX, User, Calendar, CreditCard, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,31 +26,68 @@ function ExtractedField({ icon: Icon, label, value, highlight }) {
 }
 
 export default function IDScanner({ orderId, orderCustomerName, onVerified, onBlocked }) {
-  const [phase, setPhase] = useState('idle'); // idle | preview | processing | result
+  const [phase, setPhase] = useState('idle'); // idle | camera | preview | processing | result
   const [capturedBlob, setCapturedBlob] = useState(null);
   const [capturedUrl, setCapturedUrl] = useState(null); // local preview URL
-  const [uploadedUri, setUploadedUri] = useState(null);
+  const [uploadedFileUri, setUploadedFileUri] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const cameraInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const streamRef = useRef(null);
 
-  const handleFileCapture = (e) => {
+  // --- Camera helpers ---
+  const startCamera = async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setPhase('camera');
+    } catch {
+      toast.error('Could not access camera. Please check permissions or upload a photo instead.');
+    }
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+  };
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stopCamera();
+    canvas.toBlob(blob => {
+      const previewUrl = URL.createObjectURL(blob);
+      setCapturedBlob(blob);
+      setCapturedUrl(previewUrl);
+      setPhase('preview');
+    }, 'image/jpeg', 0.92);
+  };
+
+  const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const previewUrl = URL.createObjectURL(file);
     setCapturedBlob(file);
     setCapturedUrl(previewUrl);
     setPhase('preview');
-    // Reset input so the same file can be selected again
-    e.target.value = '';
   };
 
   const handleCancel = () => {
+    stopCamera();
     setCapturedBlob(null);
     setCapturedUrl(null);
-    setUploadedUri(null);
+    setUploadedFileUri(null);
     setResult(null);
     setError(null);
     setPhase('idle');
@@ -62,24 +99,22 @@ export default function IDScanner({ orderId, orderCustomerName, onVerified, onBl
     setPhase('processing');
     setError(null);
 
-    // 1. Upload image to PRIVATE storage — government ID images must never be
-    // publicly accessible. We keep the private file_uri and only ever mint
-    // short-lived signed URLs for OCR / display.
+    // 1. Upload image
     let fileUri;
     try {
       const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file: capturedBlob });
       fileUri = file_uri;
-      setUploadedUri(fileUri);
+      setUploadedFileUri(fileUri);
     } catch {
       setError('Failed to upload ID image. Please try again.');
       setPhase('preview');
       return;
     }
 
-    // 2. OCR + cross-reference via backend (backend mints a signed URL for OCR)
+    // 2. OCR + cross-reference via backend
     try {
       const res = await base44.functions.invoke('verifyCustomerID', {
-        id_image_uri: fileUri,
+        id_image_file_uri: fileUri,
         order_id: orderId,
       });
       const data = res.data;
@@ -92,20 +127,14 @@ export default function IDScanner({ orderId, orderCustomerName, onVerified, onBl
         toast.error(data.block_reason || 'ID verification failed');
       }
     } catch {
-      setError('Verification service error. You may manually confirm the ID instead.');
+      setError('Verification service error. Retry the scan or refuse delivery.');
       setPhase('result');
       setResult({ verified: false, block_reason: 'Service error — manual review required.', extracted: null });
     }
   };
 
-  // Driver manually overrides after reviewing result
-  const handleManualApprove = () => {
-    toast.success('ID manually approved by driver');
-    onVerified({ id_image_uri: uploadedUri, verified_at_delivery: true, manual_override: true });
-  };
-
   const handleConfirmVerified = () => {
-    onVerified({ id_image_uri: uploadedUri, verified_at_delivery: true, extracted: result?.extracted });
+    onVerified({ id_image_file_uri: uploadedFileUri, verified_at_delivery: true, extracted: result?.extracted });
   };
 
   const handleRefuseDelivery = () => {
@@ -120,7 +149,7 @@ export default function IDScanner({ orderId, orderCustomerName, onVerified, onBl
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
           <CreditCard className="w-3.5 h-3.5" /> Step 1 — Scan Customer ID
         </p>
-        <Button onClick={() => cameraInputRef.current?.click()} className="w-full" size="sm">
+        <Button onClick={startCamera} className="w-full" size="sm">
           <Camera className="w-4 h-4 mr-2" /> Open Camera to Scan ID
         </Button>
         <button
@@ -129,9 +158,32 @@ export default function IDScanner({ orderId, orderCustomerName, onVerified, onBl
         >
           <Upload className="w-4 h-4" /> Upload ID Photo
         </button>
-        {/* capture="environment" opens the phone's native camera in photo mode */}
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileCapture} className="hidden" />
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileCapture} className="hidden" />
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+      </div>
+    );
+  }
+
+  if (phase === 'camera') {
+    return (
+      <div className="space-y-3">
+        <div className="relative bg-black rounded-xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          {/* ID guide overlay */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="border-2 border-white/70 rounded-lg w-4/5 h-3/5 flex items-center justify-center">
+              <span className="text-white/70 text-xs bg-black/40 px-2 py-1 rounded">Align ID within frame</span>
+            </div>
+          </div>
+        </div>
+        <canvas ref={canvasRef} className="hidden" />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleCancel} className="flex-1" size="sm">
+            <X className="w-4 h-4 mr-1" /> Cancel
+          </Button>
+          <Button onClick={capturePhoto} className="flex-1" size="sm">
+            <Camera className="w-4 h-4 mr-1" /> Capture
+          </Button>
+        </div>
       </div>
     );
   }
@@ -242,10 +294,7 @@ export default function IDScanner({ orderId, orderCustomerName, onVerified, onBl
               <Button variant="destructive" onClick={handleRefuseDelivery} className="w-full">
                 Refuse Delivery — ID Fail
               </Button>
-              <Button variant="outline" onClick={handleManualApprove} className="w-full text-xs">
-                <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
-                Override: I have physically verified this ID
-              </Button>
+              <p className="text-xs text-red-700">Do not hand over alcohol if verification fails. Rescan or refuse delivery.</p>
             </>
           )}
           <button onClick={handleCancel} className="w-full text-xs text-muted-foreground hover:text-foreground py-1">

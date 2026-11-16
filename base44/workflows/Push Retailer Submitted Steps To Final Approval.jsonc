@@ -1,0 +1,42 @@
+{
+  "name": "Push Retailer Submitted Steps To Final Approval",
+  "description": "Notify the designated administrator when a retailer submits an information step or final launch review. Deduplicate alerts and never apply unreviewed data.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerSetupSubmission",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"submitted\" and (.trigger.event_type == \"create\" or .trigger.old_data.status != \"submitted\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "push_retailer_submitted_steps_to_final_approval",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_admin": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerStepCompletion",
+            "args": {
+              "source_entity": "RetailerSetupSubmission",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Push completed step to administrator",
+            "description": "Review and apply in Final Approvals"
+          }
+        }
+      }
+    ]
+  }
+}

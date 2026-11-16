@@ -1,0 +1,15 @@
+{
+  "name": "sendOrderConfirmationGmail",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Send Order Confirmation Email on Payment"
+    }
+  ]
+}

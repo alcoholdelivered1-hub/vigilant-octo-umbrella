@@ -1,0 +1,41 @@
+{
+  "name": "Notify Beverage King After Justin Submits",
+  "description": "Notify Beverage King about Richard Campbell\u2019s paid pending order after Justin Bess submits his consent form; no driver clearance or dispatch is implied.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Driver",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.entity_id == \"6a7b78a1fba348547e219d78\" and (.trigger.data.background_check_submitted_at // \"\") != \"\" and .trigger.data.background_check_submitted_at != .trigger.old_data.background_check_submitted_at }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "notify_beverage_king_after_justin_submits",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_retailer": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerNewOrder",
+            "args": {
+              "action": "justin_submission",
+              "submission_date": "${ .trigger.data.background_check_submitted_at }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Notify Beverage King",
+            "description": "Richard\u2019s pending order after Justin submits"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -36,21 +36,16 @@ export const cartStore = {
 
     const existing = cart.find(item => item.product_id === product.id);
     if (existing) {
-      cart = cart.map(item =>
-        item.product_id === product.id
-          ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
-          : item
-      );
+      existing.quantity += 1;
+      existing.subtotal = existing.quantity * existing.price;
     } else {
-      cart = [...cart, {
+      cart.push({
         product_id: product.id,
         product_name: product.name,
         price: product.price,
-        pack_size: product.pack_size || '',
-        category: product.category || '',
         quantity: 1,
         subtotal: product.price,
-      }];
+      });
     }
     notify();
   },
@@ -59,11 +54,11 @@ export const cartStore = {
     if (quantity <= 0) {
       cart = cart.filter(item => item.product_id !== productId);
     } else {
-      cart = cart.map(item =>
-        item.product_id === productId
-          ? { ...item, quantity, subtotal: quantity * item.price }
-          : item
-      );
+      const item = cart.find(item => item.product_id === productId);
+      if (item) {
+        item.quantity = quantity;
+        item.subtotal = item.quantity * item.price;
+      }
     }
     notify();
   },

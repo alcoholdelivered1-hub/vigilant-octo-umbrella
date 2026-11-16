@@ -1,0 +1,42 @@
+{
+  "name": "Push Retailer Agreements To Final Approval",
+  "description": "Notify the designated administrator when a retailer finishes signing an agreement and its original copy is available. Contract review and countersignature remain required.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerAgreement",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"submitted\" and (.trigger.data.file_uri // \"\") != \"\" and (.trigger.event_type == \"create\" or .trigger.old_data.status != \"submitted\" or (.trigger.old_data.file_uri // \"\") == \"\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "push_retailer_agreements_to_final_approval",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_admin": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerStepCompletion",
+            "args": {
+              "source_entity": "RetailerAgreement",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Push signed agreement to administrator",
+            "description": "Review and countersign for this retailer"
+          }
+        }
+      }
+    ]
+  }
+}

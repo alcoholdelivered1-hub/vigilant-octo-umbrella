@@ -9,17 +9,13 @@ import {
   Loader2, X, Package, RefreshCw
 } from 'lucide-react';
 
-const PRODUCT_CSV_TEMPLATE = `product_name,category,brand,price,pack_size,volume,abv,stock_quantity,in_stock
-Budweiser,beer,Budweiser,2.99,Single,12oz,5.0,500,true
-Budweiser,beer,Budweiser,14.99,6-Pack,12oz,5.0,80,true
-Budweiser,beer,Budweiser,24.99,12-Pack,12oz,5.0,40,true
-Budweiser,beer,Budweiser,54.99,30-Pack,12oz,5.0,15,true
-Budweiser,beer,Budweiser,49.99,Case,12oz,5.0,10,true
-Jack Daniels,spirits,Jack Daniels,24.99,Single,750ml,40.0,45,true
-Merlot Reserve,wine,Robert Mondavi,18.99,Single,750ml,13.5,30,true`;
+const PRODUCT_CSV_TEMPLATE = `product_name,category,brand,price,volume,abv,stock_quantity,in_stock
+Budweiser 12pk,beer,Budweiser,14.99,12oz,5.0,150,true
+Jack Daniels,spirits,Jack Daniels,24.99,750ml,40.0,45,true
+Merlot Reserve,wine,Robert Mondavi,18.99,750ml,13.5,30,true`;
 
 export default function StoreInventoryUpload() {
-  const [selectedStoreId, setSelectedStoreId] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState(new URLSearchParams(window.location.search).get('store_id') || '');
   const [file, setFile] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,7 +25,7 @@ export default function StoreInventoryUpload() {
 
   const { data: stores = [], isLoading: storesLoading } = useQuery({
     queryKey: ['stores-for-upload'],
-    queryFn: () => base44.entities.Store.filter({ is_active: true }, 'name', 200),
+    queryFn: () => base44.entities.Store.list('name', 200),
   });
 
   const selectedStore = stores.find(s => s.id === selectedStoreId);
@@ -269,7 +265,6 @@ export default function StoreInventoryUpload() {
             ['category', 'beer / wine / spirits / mixers'],
             ['brand', 'Brand name'],
             ['price', 'Price in USD'],
-            ['pack_size', 'Single / 6-Pack / 12-Pack / 18-Pack / 24-Pack / 30-Pack / Case'],
             ['volume', 'e.g. 750ml, 12oz'],
             ['abv', 'Alcohol by volume %'],
             ['stock_quantity', 'Current inventory count'],

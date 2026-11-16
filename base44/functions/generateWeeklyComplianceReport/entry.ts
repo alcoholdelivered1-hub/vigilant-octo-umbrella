@@ -1,39 +1,13 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
-
-function buildRawEmail(to, subject, body, fromName) {
-  const fromHeader = `${fromName} <alcohol.delivered1@gmail.com>`;
-  const message = [
-    `From: ${fromHeader}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: text/plain; charset=UTF-8`,
-    ``,
-    body,
-  ].join('\r\n');
-  return btoa(unescape(encodeURIComponent(message)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Allow both authenticated admin calls and scheduled automation calls
-    let isAdmin = false;
-    try {
-      const user = await base44.auth.me();
-      isAdmin = user?.role === 'admin';
-    } catch {
-      // unauthenticated — only allow if called via automation (service role)
-    }
-
     const body = await req.json().catch(() => ({}));
-    const isAutomation = body?.automation?.id;
-
-    if (!isAdmin && !isAutomation) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const svc = base44.asServiceRole;
 
@@ -159,37 +133,15 @@ Prepared for Arkansas Alcoholic Beverage Control (ABC) Division review.
 © ${now.getFullYear()} Alcohol Delivered, LLC · Pine Bluff, AR · Jefferson County
 `.trim();
 
-    // Send to store manager / compliance officer — but never to a
-    // government/ABC address (shared suppression guard).
-    const { isBlockedRecipient } = await import('../../shared/emailGuard.ts');
-    const rawRecipient = Deno.env.get('STORE_MANAGER_EMAIL') || '';
-    const recipientEmail =
-      rawRecipient && !isBlockedRecipient(rawRecipient) ? rawRecipient : 'compliance@alcohol-delivered.biz';
-    if (isBlockedRecipient(recipientEmail)) {
-      console.log('Weekly compliance report not sent — recipient is a blocked government/ABC address');
-      return Response.json({
-        success: true,
-        sent: false,
-        reason: 'Recipient is a blocked government/ABC address',
-        period: `${weekStart}–${weekEnd}`,
-        total_orders: weekOrders.length,
-        flagged_orders: flaggedOrders.length,
-        uncertified_drivers: uncertifiedDrivers.length,
-      });
-    }
+    // Send to store manager / compliance officer
+    const recipientEmail = Deno.env.get('STORE_MANAGER_EMAIL') || 'compliance@alcohol-delivered.biz';
 
-    // Use Gmail to send — manager email may not be a registered app user
-    const { accessToken } = await svc.connectors.getConnection('gmail');
-    const raw = buildRawEmail(recipientEmail, `[ABC Compliance] Weekly Report — ${weekStart}–${weekEnd} · ${flaggedOrders.length} Flag${flaggedOrders.length !== 1 ? 's' : ''}`, emailBody, 'Alcohol Delivered Compliance');
-    const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw }),
+    await svc.integrations.Core.SendEmail({
+      to: recipientEmail,
+      subject: `[ABC Compliance] Weekly Report — ${weekStart}–${weekEnd} · ${flaggedOrders.length} Flag${flaggedOrders.length !== 1 ? 's' : ''}`,
+      body: emailBody,
+      from_name: 'Alcohol Delivered Compliance',
     });
-    if (!gmailRes.ok) {
-      const errBody = await gmailRes.text();
-      throw new Error(`Gmail API error: ${gmailRes.status} — ${errBody}`);
-    }
 
     console.log(`Weekly compliance report sent. Orders: ${weekOrders.length}, Flags: ${flaggedOrders.length}, Uncertified drivers: ${uncertifiedDrivers.length}`);
 

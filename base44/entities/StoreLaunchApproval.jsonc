@@ -1,0 +1,46 @@
+{
+  "name": "StoreLaunchApproval",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "check_version": {
+      "type": "string",
+      "enum": [
+        "beverage_king_v1"
+      ]
+    }
+  },
+  "required": [
+    "store_id",
+    "approved_at",
+    "check_version"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

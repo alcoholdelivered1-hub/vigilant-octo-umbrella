@@ -1,0 +1,41 @@
+{
+  "name": "Paid Order Automation",
+  "description": "When an order's Stripe payment becomes paid, automatically emails the customer a confirmation with items, total, delivery address, and the 21+ ID reminder \u2014 no manual action required.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.stripe_payment_status == \"paid\" and .trigger.old_data.stripe_payment_status != \"paid\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "paid_order_automation",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "confirm_order": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "onPaidOrderAutomation",
+            "args": {
+              "order_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Send customer confirmation",
+            "description": "Email the customer their paid order confirmation"
+          }
+        }
+      }
+    ]
+  }
+}

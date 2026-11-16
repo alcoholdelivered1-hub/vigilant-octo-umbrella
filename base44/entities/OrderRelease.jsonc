@@ -1,0 +1,49 @@
+{
+  "name": "OrderRelease",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string"
+    },
+    "payment_reconciled": {
+      "type": "boolean",
+      "default": false
+    },
+    "retailer_sale_confirmed": {
+      "type": "boolean",
+      "default": false
+    },
+    "final_items_and_total_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "order_id"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

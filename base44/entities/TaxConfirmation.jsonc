@@ -1,0 +1,55 @@
+{
+  "name": "TaxConfirmation",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed"
+      ],
+      "default": "pending"
+    },
+    "source": {
+      "type": "string",
+      "description": "DFA Sales Tax guidance or reviewed authority"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Destination, alcohol category, and calculation coverage"
+    }
+  },
+  "required": [
+    "store_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

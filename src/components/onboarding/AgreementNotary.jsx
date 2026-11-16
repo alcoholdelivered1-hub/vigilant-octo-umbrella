@@ -1,0 +1,5 @@
+import React from 'react';
+import RetailerAgreementField from '@/components/onboarding/RetailerAgreementField';
+export default function AgreementNotary() {
+  return <section className="space-y-3 rounded-xl border bg-muted/30 p-4"><h3 className="font-semibold">Notary acknowledgment (optional)</h3><p className="text-sm text-muted-foreground">Never required for onboarding completion. A typed transcription is not proof of notarization; retain and upload the actual acknowledged document if applicable.</p><div className="grid gap-4 sm:grid-cols-2">{['notary_county','notary_name','notary_date','notary_signature','notary_commission_expires'].map(name => <RetailerAgreementField key={name} name={name} type={name === 'notary_date' || name === 'notary_commission_expires' ? 'date' : 'text'} />)}</div></section>;
+}

@@ -1,9 +1,19 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 
 const AuthContext = createContext();
+
+const withAuthTimeout = (operation) => {
+  let timer;
+  return Promise.race([
+    operation,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Request timed out. Please check your connection and try again.')), 12000);
+    })
+  ]).finally(() => clearTimeout(timer));
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -12,25 +22,20 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
-  const [isDriver, setIsDriver] = useState(false);
-  const [isRetailer, setIsRetailer] = useState(false);
-  const [retailerStore, setRetailerStore] = useState(null);
 
   useEffect(() => {
     checkAppState();
   }, []);
 
+  const authCheck = useRef(0);
+
   const checkAppState = async () => {
+    const checkId = ++authCheck.current;
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
 
-      // Timeout safety: never hang indefinitely on mobile
-      const timeoutId = setTimeout(() => {
-        setIsLoadingPublicSettings(false);
-        setIsLoadingAuth(false);
-        setAuthError({ type: 'unknown', message: 'Request timed out. Please check your connection and try again.' });
-      }, 12000);
+      setIsLoadingAuth(true);
       
       // First, check app public settings (with token if available)
       // This will tell us if auth is required, user not registered, etc.
@@ -44,32 +49,31 @@ export const AuthProvider = ({ children }) => {
       });
       
       try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
-        clearTimeout(timeoutId);
+        const publicSettings = await withAuthTimeout(appClient.get(`/prod/public-settings/by-id/${appParams.appId}`));
+        if (checkId !== authCheck.current) return;
         setAppPublicSettings(publicSettings);
         
         // If we got the app public settings successfully, check if user is authenticated
         if (appParams.token) {
-          await checkUserAuth();
+          await checkUserAuth(checkId);
+          if (checkId !== authCheck.current) return;
         } else {
           setIsLoadingAuth(false);
           setIsAuthenticated(false);
         }
         setIsLoadingPublicSettings(false);
       } catch (appError) {
-        clearTimeout(timeoutId);
+        if (checkId !== authCheck.current) return;
         console.error('App state check failed:', appError);
         
-        // Handle app-level errors. Public routes should still render even when auth is required
-        // by the app backend, because the soft-opening experience is intended to be publicly accessible.
+        // Handle app-level errors
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
           const reason = appError.data.extra_data.reason;
           if (reason === 'auth_required') {
-            setAuthError(null);
-            setIsAuthenticated(false);
-            setIsLoadingAuth(false);
-            setIsLoadingPublicSettings(false);
-            return;
+            setAuthError({
+              type: 'auth_required',
+              message: 'Authentication required'
+            });
           } else if (reason === 'user_not_registered') {
             setAuthError({
               type: 'user_not_registered',
@@ -91,6 +95,7 @@ export const AuthProvider = ({ children }) => {
         setIsLoadingAuth(false);
       }
     } catch (error) {
+      if (checkId !== authCheck.current) return;
       console.error('Unexpected error:', error);
       setAuthError({
         type: 'unknown',
@@ -101,44 +106,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const checkUserAuth = async () => {
+  const checkUserAuth = async (checkId) => {
     try {
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
+      const currentUser = await withAuthTimeout(base44.auth.me());
+      if (checkId !== authCheck.current) return;
       setUser(currentUser);
       setIsAuthenticated(true);
-
-      // Check if this user has a Driver record (for portal access)
-      if (currentUser?.email && currentUser.role !== 'admin') {
-        try {
-          const drivers = await base44.entities.Driver.filter({ email: currentUser.email });
-          setIsDriver(drivers.length > 0);
-        } catch (e) {
-          setIsDriver(false);
-        }
-      }
-
-      // Check whether this email belongs to a retailer store
-      if (currentUser?.email) {
-        try {
-          const stores = await base44.entities.Store.filter({ email: currentUser.email });
-          const matchedStore = Array.isArray(stores) ? stores[0] || null : null;
-          setIsRetailer(Boolean(matchedStore));
-          setRetailerStore(matchedStore);
-        } catch (e) {
-          console.error('Retailer lookup failed:', e);
-          setIsRetailer(false);
-          setRetailerStore(null);
-        }
-      } else {
-        setIsRetailer(false);
-        setRetailerStore(null);
-      }
-
       setIsLoadingAuth(false);
     } catch (error) {
+      if (checkId !== authCheck.current) return;
       console.error('User auth check failed:', error);
+      setUser(null);
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
       
@@ -148,16 +128,16 @@ export const AuthProvider = ({ children }) => {
           type: 'auth_required',
           message: 'Authentication required'
         });
+      } else {
+        setAuthError({ type: 'unknown', message: error.message || 'Unable to check your account. Please try again.' });
       }
     }
   };
 
   const logout = (shouldRedirect = true) => {
+    authCheck.current++;
     setUser(null);
     setIsAuthenticated(false);
-    setIsDriver(false);
-    setIsRetailer(false);
-    setRetailerStore(null);
     
     if (shouldRedirect) {
       // Use the SDK's logout method which handles token cleanup and redirect
@@ -169,8 +149,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method, redirect to Welcome page after sign-in
-    base44.auth.redirectToLogin('/');
+    // Return applicants to the exact page they requested after sign-in.
+    const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    base44.auth.redirectToLogin(returnTo || '/');
   };
 
   return (
@@ -181,9 +162,6 @@ export const AuthProvider = ({ children }) => {
       isLoadingPublicSettings,
       authError,
       appPublicSettings,
-      isDriver,
-      isRetailer,
-      retailerStore,
       logout,
       navigateToLogin,
       checkAppState

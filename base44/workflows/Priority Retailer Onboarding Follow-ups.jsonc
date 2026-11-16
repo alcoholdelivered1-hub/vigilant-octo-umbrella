@@ -1,0 +1,50 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "priority_retailer_onboarding_follow_ups",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "follow_up": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendContractReminders",
+            "args": {
+              "store_ids": [
+                "6a32d14d09b760f592dbf19e",
+                "6abbd1a16dc8d922f3b73caf"
+              ]
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Follow up with priority retailers",
+            "description": "One next step, setup help, 72-hour contact limit"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Priority Retailer Onboarding Follow-ups",
+  "description": "Checks Beverage King and Woodlands every weekday at 9am Central. Sends their current next setup step and asks for setup-session availability only when at least 72 hours have passed since contact. Does not activate stores or complete owner-only verification.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 9 * * 1-5",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "Beverage King Driver Readiness Recheck",
+  "description": "Re-run every Beverage King launch gate when driver qualification fields change. The existing launch check rejects simulated reports and incomplete drivers before activation.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Driver",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.is_active == true and .trigger.data.status == \"available\" and .trigger.data.training_completed == true and .trigger.data.background_check_status == \"clear\" and (.trigger.event_type == \"create\" or any((.trigger.changed_fields // [])[]; . == \"is_active\" or . == \"status\" or . == \"training_completed\" or . == \"background_check_status\" or . == \"background_check_id\" or . == \"background_check_completed_at\" or . == \"date_of_birth\" or . == \"license_number\" or . == \"vehicle_info\")) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "beverage_king_driver_readiness_recheck",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "recheck_launch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "beverageKingGoLive",
+            "args": {
+              "action": "check"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Recheck Beverage King launch",
+            "description": "Activate only after all production gates pass"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,80 +1,102 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Store, ShoppingBag, User, ShieldCheck, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  customerNavigation,
+  navigationActive,
+  cacheCurrentTabPath,
+  getCachedTabPath,
+  cacheTabScroll,
+  getTabScroll,
+} from './workspaceNavigation';
 
-const customerTabs = [
-  { path: '/home', icon: Home, label: 'Home' },
-  { path: '/stores', icon: Store, label: 'Stores' },
-  { path: '/orders', icon: ShoppingBag, label: 'Orders' },
-  { path: '/safety-training', icon: ShieldCheck, label: 'Safety' },
-  { path: '/profile', icon: User, label: 'Profile' },
-];
+const scrollContainer = () => document.querySelector('.app-scroll-container');
 
-const driverTab = { path: '/driver', icon: Truck, label: 'Driver' };
-
-export default function BottomTabBar({ showDriverTab = false }) {
+// iOS tab bar: each tab keeps its own navigation stack (last visited screen) and
+// scroll offset. Switching tabs restores both, and tapping the active tab pops
+// that tab's stack back to its root screen.
+export default function BottomTabBar({ tabs = customerNavigation }) {
   const location = useLocation();
   const navigate = useNavigate();
-  // Remember the last visited path per tab so switching back restores it
-  const tabHistory = useRef({});
+  const restoreTimers = useRef([]);
 
-  const tabs = useMemo(() => {
-    if (!showDriverTab) return customerTabs;
-    // Insert Driver tab after Orders, before Safety
-    return [...customerTabs.slice(0, 3), driverTab, ...customerTabs.slice(3)];
-  }, [showDriverTab]);
+  // Remember the current screen and persist its scroll offset when leaving it.
+  useEffect(() => {
+    const tab = cacheCurrentTabPath(location.pathname);
+    if (!tab) return;
+    const container = scrollContainer();
+    let top = container?.scrollTop || 0;
+    const record = () => { top = container?.scrollTop || 0; };
+    cacheTabScroll(tab, top);
+    container?.addEventListener('scroll', record, { passive: true });
+    return () => {
+      container?.removeEventListener('scroll', record);
+      cacheTabScroll(tab, top);
+    };
+  }, [location.pathname]);
 
-  const handleTabPress = (tab) => {
-    const isActive = location.pathname === tab.path ||
-      (tab.path === '/stores' && location.pathname.startsWith('/stores')) ||
-      (tab.path === '/safety-training' && location.pathname.startsWith('/safety-training')) ||
-      (tab.path === '/driver' && location.pathname.startsWith('/driver'));
+  const clearRestores = () => {
+    restoreTimers.current.forEach(clearTimeout);
+    restoreTimers.current = [];
+  };
 
-    if (isActive) {
-      // On a sub-path of the active tab → go back to the tab's root path
-      if (location.pathname !== tab.path) {
-        navigate(tab.path);
-        return;
+  useEffect(() => clearRestores, []);
+
+  const selectTab = tab => {
+    const container = scrollContainer();
+    const currentTab = cacheCurrentTabPath(location.pathname);
+    if (currentTab) cacheTabScroll(currentTab, container?.scrollTop || 0);
+
+    if (navigationActive(location.pathname, tab)) {
+      // Re-selecting the active tab pops back to the tab's root screen.
+      if (location.pathname === tab.path) {
+        container?.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        navigate(tab.path, { replace: true });
+        requestAnimationFrame(() => scrollContainer()?.scrollTo({ top: 0 }));
       }
-      // Already at root → scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    // Save current path under its root tab
-    const currentRoot = tabs.find(t =>
-      location.pathname === t.path ||
-      (t.path === '/stores' && location.pathname.startsWith('/stores')) ||
-      (t.path === '/driver' && location.pathname.startsWith('/driver'))
-    );
-    if (currentRoot) tabHistory.current[currentRoot.path] = location.pathname;
+    // Restore the tab's own stack: its deepest screen plus its scroll position.
+    const saved = getTabScroll(tab.path);
+    navigate(getCachedTabPath(tab.path) || tab.to || tab.path);
 
-    // Restore last visited path for this tab, or go to root
-    const dest = tabHistory.current[tab.path] || tab.path;
-    navigate(dest);
+    clearRestores();
+    const restore = () => scrollContainer()?.scrollTo({ top: saved });
+    requestAnimationFrame(restore);
+    restoreTimers.current = [
+      // The outgoing screen finishes its transition first, then the restored one mounts.
+      setTimeout(restore, 320),
+      // Retry once if the first attempt landed before the screen had its full height.
+      setTimeout(() => {
+        const el = scrollContainer();
+        if (el && saved > 0 && el.scrollTop === 0) el.scrollTo({ top: saved });
+      }, 640),
+    ];
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t md:hidden"
+    <nav
+      aria-label="Workspace navigation"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-card/85 backdrop-blur-xl"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="flex items-stretch h-14">
+      <div className="mx-auto flex h-[49px] max-w-lg items-stretch">
         {tabs.map(tab => {
-          const active = location.pathname === tab.path ||
-            (tab.path === '/stores' && location.pathname.startsWith('/stores')) ||
-            (tab.path === '/safety-training' && location.pathname.startsWith('/safety-training')) ||
-            (tab.path === '/driver' && location.pathname.startsWith('/driver'));
+          const active = navigationActive(location.pathname, tab);
           return (
             <button
+              type="button"
               key={tab.path}
-              onClick={() => handleTabPress(tab)}
+              aria-current={active ? 'page' : undefined}
+              aria-label={tab.label}
+              onClick={() => selectTab(tab)}
               className={cn(
-                'flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors',
+                'flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] transition-colors active:opacity-60',
                 active ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              <tab.icon className={cn('w-5 h-5', active && 'stroke-[2.5px]')} />
-              {tab.label}
+              )}>
+              <tab.icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.4 : 1.8} />
+              <span className={cn('truncate text-[0.65rem] leading-none tracking-tight', active ? 'font-semibold' : 'font-medium')}>{tab.label}</span>
             </button>
           );
         })}

@@ -1,0 +1,47 @@
+{
+  "name": "Daily Store Owner Revenue Reports",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_store_owner_revenue_reports",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "email_store_reports": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendDailyRevenueReport",
+            "args": {
+              "preview_only": false
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email each store its daily revenue",
+            "description": "Previous day's completed sales, store-specific emails"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 8 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "Every day at 8am Central, email each store's recorded owner contact a private report of that store's previous-day paid, delivered Alcohol Delivered orders, including zero-sales days. Skip missing email addresses and previously emailed reports."
+}

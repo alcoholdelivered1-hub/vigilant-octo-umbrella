@@ -1,0 +1,40 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "entity_name": "Store"
+    }
+  },
+  "description": "Refresh the shared onboarding tracker after stores are created, updated or deleted. Keep one row per current store without app login or public sharing.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sync_store_changes_to_onboarding_sheet",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "sync_tracker": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncStoreOnboardingToSheets",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Sync store setup changes",
+            "description": "Refresh the shared Google Sheet"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Sync Store Changes To Onboarding Sheet"
+}

@@ -1,0 +1,4 @@
+{
+  "name": "storeCloverOAuth",
+  "entry": "entry.ts"
+}

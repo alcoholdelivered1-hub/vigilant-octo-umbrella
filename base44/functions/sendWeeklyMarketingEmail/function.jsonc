@@ -1,0 +1,4 @@
+{
+  "name": "sendWeeklyMarketingEmail",
+  "entry": "entry.ts"
+}

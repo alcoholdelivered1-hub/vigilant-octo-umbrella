@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import StoreMapResize from '@/components/partner/StoreMapResize';
 import { MapPin } from 'lucide-react';
 
 // Fix Leaflet default icon
@@ -129,6 +131,7 @@ export default function StoreOrderMap({ orders = [], store, selectedOrderId, onS
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <StoreMapResize />
         <AutoFitBounds positions={allPositions} />
 
         {/* Store marker */}

@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 function buildEmail({ to, subject, html }) {
   const boundary = 'boundary_sipswift_' + Date.now();
@@ -27,6 +28,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const { event, data } = body;
 

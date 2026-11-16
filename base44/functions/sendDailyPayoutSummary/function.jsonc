@@ -1,0 +1,4 @@
+{
+  "name": "sendDailyPayoutSummary",
+  "entry": "entry.ts"
+}

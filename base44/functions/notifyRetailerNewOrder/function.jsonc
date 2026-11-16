@@ -1,0 +1,16 @@
+{
+  "name": "notifyRetailerNewOrder",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "Fires when a new order is created and emails the retail partner immediately so they can begin fulfillment.",
+      "entity_name": "Order",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Notify Retailer on New Order"
+    }
+  ]
+}

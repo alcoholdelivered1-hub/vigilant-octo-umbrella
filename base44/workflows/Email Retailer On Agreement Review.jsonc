@@ -1,0 +1,41 @@
+{
+  "name": "Email Retailer On Agreement Review",
+  "description": "Sends a business Gmail update to saved retailer contacts after administrator review of a signed retailer agreement. Includes approval or correction feedback and the secure setup link.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerAgreement",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.data.review_status == \"approved\" or .trigger.data.review_status == \"needs_correction\") and .trigger.data.reviewed_at != null and (.trigger.old_data.review_status != .trigger.data.review_status or .trigger.old_data.reviewed_at != .trigger.data.reviewed_at) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "email_retailer_on_agreement_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "email_agreement_decision": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerReview",
+            "args": {
+              "entity": "RetailerAgreement",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email agreement review decision",
+            "description": "Business Gmail, saved retailer contacts"
+          }
+        }
+      }
+    ]
+  }
+}

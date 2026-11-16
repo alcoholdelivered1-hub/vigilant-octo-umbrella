@@ -1,0 +1,4 @@
+{
+  "name": "checkServerEgressIp",
+  "entry": "entry.ts"
+}

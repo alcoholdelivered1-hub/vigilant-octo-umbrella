@@ -1,0 +1,15 @@
+{
+  "name": "notifyLowStockProduct",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "entity_name": "Product",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Low Stock Email Alert"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_stripe_payout_summary",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_summary": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendDailyPayoutSummary",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email daily payout summary",
+            "description": "Yesterday's Stripe payouts and 7-day per-customer totals"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Every morning at 7am CST, emails the store manager a summary of yesterday's Stripe payouts (total deposited) and the top customers by total amount paid in the last 7 days.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 7 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Daily Stripe Payout Summary"
+}

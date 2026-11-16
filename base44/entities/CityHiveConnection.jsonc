@@ -1,0 +1,75 @@
+{
+  "name": "CityHiveConnection",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string",
+      "description": "Store linked to this CityHive merchant"
+    },
+    "merchant_id": {
+      "type": "string",
+      "description": "CityHive merchant ID if known"
+    },
+    "merchant_name": {
+      "type": "string",
+      "description": "Verified CityHive merchant name"
+    },
+    "encrypted_api_token": {
+      "type": "string"
+    },
+    "api_token_iv": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "disconnected"
+      ],
+      "default": "connected"
+    },
+    "connected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_sync_count": {
+      "type": "number",
+      "description": "Number of products synced in the last successful sync"
+    },
+    "last_sync_error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "encrypted_api_token",
+    "api_token_iv",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

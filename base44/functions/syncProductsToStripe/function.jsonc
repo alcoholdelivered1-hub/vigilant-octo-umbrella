@@ -1,0 +1,4 @@
+{
+  "name": "syncProductsToStripe",
+  "entry": "entry.ts"
+}

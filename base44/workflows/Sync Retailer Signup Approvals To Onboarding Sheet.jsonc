@@ -1,0 +1,40 @@
+{
+  "name": "Sync Retailer Signup Approvals To Onboarding Sheet",
+  "description": "Refresh the existing onboarding Google Sheet when retailer applications become approved or leave approved, without activating stores.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "RetailerSignup",
+      "events": [
+        "create",
+        "update",
+        "delete"
+      ]
+    },
+    "condition": "${ (.trigger.data.status == \"approved\" and .trigger.old_data.status != \"approved\") or (.trigger.old_data.status == \"approved\" and .trigger.data.status != \"approved\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sync_retailer_signup_approvals_to_onboarding_sheet",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "sync_approval_tracker": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncStoreOnboardingToSheets",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Update retailer approval tracker",
+            "description": "Refresh application statuses in Google Sheets"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+.retailer-storefront, .dark .retailer-storefront {
+  --storefront-bg: 40 25% 97%; --storefront-ink: 222 28% 15%; --storefront-primary: 222 35% 25%; --storefront-soft: 40 15% 91%;
+  --background: var(--storefront-bg); --foreground: var(--storefront-ink);
+  --primary: var(--storefront-primary); --primary-foreground: 0 0% 100%;
+  --card: var(--storefront-bg); --card-foreground: var(--storefront-ink);
+  --muted: var(--storefront-soft); --muted-foreground: var(--storefront-ink);
+  --border: var(--storefront-soft); --input: var(--storefront-soft); --ring: var(--storefront-primary);
+  --secondary: var(--storefront-soft); --secondary-foreground: var(--storefront-ink);
+  --accent: var(--storefront-soft); --accent-foreground: var(--storefront-ink);
+}
+.retailer-storefront.retailer-design-107 { --storefront-bg: 210 20% 98%; --storefront-ink: 216 35% 15%; --storefront-primary: 216 50% 26%; --storefront-soft: 210 22% 90%; }
+.retailer-storefront.retailer-design-ace { --storefront-bg: 32 35% 97%; --storefront-ink: 12 25% 18%; --storefront-primary: 9 43% 32%; --storefront-soft: 32 28% 89%; }
+.retailer-storefront.retailer-design-beverage { --storefront-bg: 42 35% 96%; --storefront-ink: 229 30% 15%; --storefront-primary: 232 45% 27%; --storefront-soft: 42 34% 86%; }
+.retailer-storefront.retailer-design-big-d { --storefront-bg: 32 23% 97%; --storefront-ink: 30 18% 14%; --storefront-primary: 30 25% 24%; --storefront-soft: 33 28% 89%; }
+.retailer-storefront.retailer-design-boulevard { --storefront-bg: 36 45% 97%; --storefront-ink: 322 22% 17%; --storefront-primary: 322 30% 29%; --storefront-soft: 34 25% 88%; }
+.retailer-storefront.retailer-design-busy-bee { --storefront-bg: 45 55% 96%; --storefront-ink: 38 32% 18%; --storefront-primary: 38 65% 28%; --storefront-soft: 44 40% 86%; }
+.retailer-storefront.retailer-design-downtown { --storefront-bg: 180 12% 97%; --storefront-ink: 192 25% 15%; --storefront-primary: 192 45% 25%; --storefront-soft: 180 15% 88%; }
+.retailer-storefront.retailer-design-firewater { --storefront-bg: 20 25% 97%; --storefront-ink: 16 28% 16%; --storefront-primary: 16 52% 30%; --storefront-soft: 25 26% 88%; }
+.retailer-storefront.retailer-design-harvey { --storefront-bg: 43 34% 96%; --storefront-ink: 25 30% 18%; --storefront-primary: 27 39% 30%; --storefront-soft: 39 28% 87%; }
+.retailer-storefront.retailer-design-hog-wild { --storefront-bg: 36 35% 96%; --storefront-ink: 356 25% 16%; --storefront-primary: 356 42% 30%; --storefront-soft: 34 24% 87%; }
+.retailer-storefront.retailer-design-keystone { --storefront-bg: 215 17% 97%; --storefront-ink: 213 21% 17%; --storefront-primary: 213 30% 29%; --storefront-soft: 214 14% 87%; }
+.retailer-storefront.retailer-design-kiehl { --storefront-bg: 155 14% 97%; --storefront-ink: 165 25% 15%; --storefront-primary: 165 34% 27%; --storefront-soft: 155 16% 87%; }
+.retailer-storefront.retailer-design-lake { --storefront-bg: 193 28% 97%; --storefront-ink: 199 32% 17%; --storefront-primary: 199 46% 29%; --storefront-soft: 193 22% 87%; }
+.retailer-storefront.retailer-design-legacy { --storefront-bg: 40 38% 96%; --storefront-ink: 265 22% 17%; --storefront-primary: 265 29% 29%; --storefront-soft: 39 24% 86%; }
+.retailer-storefront.retailer-design-less { --storefront-bg: 165 15% 98%; --storefront-ink: 163 25% 15%; --storefront-primary: 163 40% 25%; --storefront-soft: 165 18% 88%; }
+.retailer-storefront.retailer-design-mk { --storefront-bg: 220 24% 15%; --storefront-ink: 38 30% 93%; --storefront-primary: 36 25% 42%; --storefront-soft: 220 18% 24%; }
+.retailer-storefront.retailer-design-maumelle { --storefront-bg: 38 44% 97%; --storefront-ink: 130 20% 18%; --storefront-primary: 130 24% 28%; --storefront-soft: 38 27% 87%; }
+.retailer-storefront.retailer-design-neighborhood { --storefront-bg: 28 38% 96%; --storefront-ink: 20 24% 18%; --storefront-primary: 20 42% 32%; --storefront-soft: 28 24% 86%; }
+.retailer-storefront.retailer-design-popatop { --storefront-bg: 210 16% 98%; --storefront-ink: 203 25% 15%; --storefront-primary: 203 42% 25%; --storefront-soft: 210 16% 88%; }
+.retailer-storefront.retailer-design-sherwood { --storefront-bg: 150 18% 96%; --storefront-ink: 148 25% 16%; --storefront-primary: 148 35% 27%; --storefront-soft: 150 18% 85%; }
+.retailer-storefront.retailer-design-springhill { --storefront-bg: 48 32% 97%; --storefront-ink: 103 22% 18%; --storefront-primary: 103 28% 29%; --storefront-soft: 48 21% 86%; }
+.retailer-storefront.retailer-design-sullivant { --storefront-bg: 30 30% 97%; --storefront-ink: 352 25% 18%; --storefront-primary: 352 34% 31%; --storefront-soft: 30 24% 87%; }
+.retailer-storefront.retailer-design-warehouse { --storefront-bg: 216 18% 13%; --storefront-ink: 35 20% 94%; --storefront-primary: 213 30% 38%; --storefront-soft: 216 18% 23%; }
+.retailer-storefront.retailer-design-woodlands { --storefront-bg: 44 32% 96%; --storefront-ink: 157 24% 16%; --storefront-primary: 157 30% 26%; --storefront-soft: 43 24% 86%; }
+.retailer-storefront.retailer-design-yancey { --storefront-bg: 33 35% 97%; --storefront-ink: 275 21% 19%; --storefront-primary: 275 28% 31%; --storefront-soft: 33 25% 87%; }

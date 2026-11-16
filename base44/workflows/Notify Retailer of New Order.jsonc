@@ -1,0 +1,44 @@
+{
+  "name": "Notify Retailer of New Order",
+  "description": "For Beverage King and Woodlands, alert the retailer only when a pending order becomes paid. Preserve existing new-order alerts for other stores.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ if (.trigger.data.store_id == \"6a32d14d09b760f592dbf19e\" or .trigger.data.store_id == \"6abbd1a16dc8d922f3b73caf\") then (.trigger.data.status == \"pending\" and .trigger.data.stripe_payment_status == \"paid\" and (.trigger.event_type == \"create\" or .trigger.old_data.stripe_payment_status != \"paid\")) else (.trigger.event_type == \"create\" and .trigger.data.status == \"pending\") end }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "notify_retailer_new_order",
+      "version": "1.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyRetailerNewOrder",
+            "args": {
+              "event": {
+                "type": "create"
+              },
+              "data": "${ .trigger.data }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Notify retailer",
+            "description": "Paid priority orders ready for acceptance"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -3,10 +3,11 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { DollarSign, Truck, TrendingUp, Calendar, CheckCircle2, Clock, XCircle, SkipForward } from 'lucide-react';
 import PayoutSettings from '@/components/driver/PayoutSettings';
+import RequestPayoutButton from '@/components/driver/RequestPayoutButton';
 import { format, startOfWeek, startOfMonth, subWeeks, subMonths, isWithinInterval, endOfWeek, endOfMonth } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
-const DELIVERY_FEE_PER_ORDER = 4.75;
+const DELIVERY_FEE_PER_ORDER = 3.00;
 
 
 function StatCard({ icon: Icon, label, value, sub, color = 'text-primary' }) {
@@ -158,7 +159,7 @@ export default function DriverEarnings() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold">My Earnings</h1>
-          <p className="text-sm text-muted-foreground">$4.75 delivery fee per completed order</p>
+          <p className="text-sm text-muted-foreground">$3.00 delivery fee per completed order</p>
         </div>
         {/* Period Toggle */}
         <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
@@ -208,6 +209,9 @@ export default function DriverEarnings() {
           color="text-blue-500"
         />
       </div>
+
+      {/* Request early payout */}
+      <RequestPayoutButton userId={user?.id} />
 
       {/* Tips summary */}
       {totalTips > 0 && (

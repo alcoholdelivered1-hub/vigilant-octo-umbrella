@@ -1,0 +1,145 @@
+{
+  "name": "RetailerOnboarding",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string",
+      "description": "Canonical store id. Legacy records may omit it and are resolved by name only until migrated."
+    },
+    "clover_merchant_id": {
+      "type": "string",
+      "description": "LEGACY free-text field. Never treated as a register connection; readiness reads CloverConnection by store id only."
+    },
+    "relationship": {
+      "type": "string",
+      "description": "User-reported connection to Beverage King"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "details_pending",
+        "owner_authorization_pending",
+        "integration_pending",
+        "test_pending",
+        "ready"
+      ],
+      "default": "candidate"
+    },
+    "license_number": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string",
+      "description": "Street address supplied on the application; unverified until reviewed"
+    },
+    "city": {
+      "type": "string"
+    },
+    "county": {
+      "type": "string",
+      "description": "Arkansas county supplied on the application; compared against delivery-zone and permit rules"
+    },
+    "state": {
+      "type": "string"
+    },
+    "zip_code": {
+      "type": "string"
+    },
+    "contact_name": {
+      "type": "string"
+    },
+    "contact_email": {
+      "type": "string"
+    },
+    "contact_title": {
+      "type": "string"
+    },
+    "agreement_signed": {
+      "type": "boolean",
+      "default": false,
+      "description": "LEGACY flag. Readiness requires an approved RetailerAgreement record instead."
+    },
+    "clover_authorized": {
+      "type": "boolean",
+      "default": false,
+      "description": "LEGACY flag. Readiness verifies the store's CloverConnection instead."
+    },
+    "stripe_ready": {
+      "type": "boolean",
+      "default": false,
+      "description": "LEGACY flag. Readiness verifies the connected Stripe account instead."
+    },
+    "catalog_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "test_order_passed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Derived from structured sandbox evidence at approval time; readiness re-validates sandbox_evidence and its config signature."
+    },
+    "sandbox_evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Structured sandbox test evidence: test_order_reference, test_amount, retailer_accepted, notification_confirmed, handoff_confirmed, device_name, tested_at, submission_id, recorded_by, recorded_at, config_signature."
+    },
+    "sandbox_config_signature": {
+      "type": "string",
+      "description": "Signature of the configuration the sandbox test was run against. A later configuration change invalidates the evidence."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "pos_provider": {
+      "type": "string"
+    },
+    "pos_contact": {
+      "type": "string"
+    },
+    "inventory_method": {
+      "type": "string"
+    },
+    "inventory_refresh": {
+      "type": "string"
+    },
+    "last_reviewed_by": {
+      "type": "string"
+    },
+    "last_reviewed_at": {
+      "type": "string"
+    },
+    "last_submission_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,23 +1,21 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, BookOpen, Award, AlertTriangle, ChevronRight, RefreshCw, Loader2, Share2, Eye } from 'lucide-react';
+import { CheckCircle2, XCircle, BookOpen, Award, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
 
 const trainingContent = [
   {
     title: "Arkansas Alcohol Delivery Laws",
-    content: "In Arkansas, alcohol may only be delivered in wet counties. Jefferson County is a wet county. Deliveries are only permitted during legal hours (typically 7:00 AM – 2:00 AM). Drivers must be at least 21 years of age and have completed mandatory ABC training."
+    content: "Under Arkansas Act 157 of 2025, deliver only in eligible wet territory in the retailer's county or an adjoining county. Check the official ABC wet/dry map, not just a mileage radius. Follow applicable legal sale and delivery hours; there is no universal delivery window. Drivers must be at least 21, hold a valid driver's license, have no felony conviction, and complete an ABC-approved training program annually. Carry current training proof and the completed ABC Third-party Delivery Server Awareness form while delivering."
   },
   {
     title: "Age Verification Requirements",
-    content: "You MUST verify the customer's government-issued ID at every delivery — even if you've delivered to them before. The customer must be 21 or older. Acceptable IDs: Driver's License, Passport, State ID, Military ID. Expired IDs are NOT acceptable. You must verify the person receiving the order is the person who placed it."
+    content: "Verify valid government-issued ID and age 21+ at every delivery, even after checkout verification. Arkansas law permits the purchaser or an eligible adult in the household or place of employment to receive delivery. Alcohol Delivered currently uses the stricter purchaser-only handoff policy. The recipient must be present; never leave alcohol unattended. Check in-state and out-of-state IDs for expiration, alteration, authenticity and a matching photograph."
   },
   {
     title: "Refusal of Delivery",
-    content: "You are REQUIRED to refuse delivery if: (1) The customer cannot produce a valid ID, (2) The customer appears visibly intoxicated, (3) The customer is under 21, (4) Someone other than the order-placer attempts to receive the order, (5) The delivery location is in a dry area. Record all refusals in the app immediately."
+    content: "Refuse delivery if ID is invalid, altered or missing, the recipient is under 21 or visibly intoxicated, or the address is dry, outside the permitted counties, or cannot be verified. Under Alcohol Delivered's purchaser-only policy, also refuse if the purchaser is not present. Record refusals in the app. A retailer's or checkout's ID check does not replace your in-person check."
   },
   {
     title: "Driver Responsibilities & Penalties",
@@ -58,100 +56,16 @@ const questions = [
       "Leave the order at the door"
     ],
     correct: 2,
-    explanation: "Alcohol must be delivered only to the person who placed the order. Refuse and record the reason if someone else answers."
+    explanation: "Alcohol Delivered currently requires the purchaser to receive delivery. This is a stricter platform policy; Arkansas law also permits an eligible adult within the household or place of employment."
   },
 ];
 
-export default function DriverTraining({ userEmail, onComplete }) {
-  const queryClient = useQueryClient();
+export default function DriverTraining({ onComplete }) {
   const [phase, setPhase] = useState('training'); // 'training' | 'test' | 'results'
   const [page, setPage] = useState(0);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [retaking, setRetaking] = useState(false);
-  const [certLoading, setCertLoading] = useState(false);
-
-  const { data: driver } = useQuery({
-    queryKey: ['driver-training-profile', userEmail],
-    queryFn: () => base44.entities.Driver.filter({ email: userEmail }, 'name', 1),
-    enabled: !!userEmail,
-  });
-
-  const alreadyCompleted = driver?.[0]?.training_completed && !retaking;
-  const completedDate = driver?.[0]?.training_completed_date;
-
-  const handleViewCertificate = async () => {
-    setCertLoading(true);
-    // Open the window synchronously so the browser treats it as a user gesture
-    // (calling window.open AFTER an async call gets blocked by popup blockers).
-    const win = window.open('', '_blank');
-    try {
-      const result = await base44.functions.invoke('generateTrainingCertificate', {});
-      const url = result?.data?.download_url || result?.download_url;
-      if (!url) {
-        win?.close();
-        toast.error('Could not generate certificate. Please try again.');
-        return;
-      }
-      if (win && !win.closed) {
-        win.location.href = url;
-      } else {
-        // Popup was blocked — fall back to navigating this tab
-        window.location.href = url;
-      }
-    } catch (err) {
-      win?.close();
-      toast.error('Failed to generate certificate.');
-    } finally {
-      setCertLoading(false);
-    }
-  };
-
-  const handleShareCertificate = async () => {
-    setCertLoading(true);
-    const win = window.open('', '_blank');
-    try {
-      const result = await base44.functions.invoke('generateTrainingCertificate', {});
-      const url = result?.data?.download_url || result?.download_url;
-      if (!url) {
-        win?.close();
-        toast.error('Could not generate certificate for sharing.');
-        return;
-      }
-      // Try the native share sheet if available
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: 'My ACT 157 Training Certificate',
-            text: 'My Alcohol Delivery Driver Training Certificate — Alcohol Delivered, LLC',
-            url,
-          });
-        } catch {
-          // User cancelled or share failed — show the certificate instead
-          if (win && !win.closed) {
-            win.location.href = url;
-          } else {
-            window.location.href = url;
-          }
-        }
-      } else if (win && !win.closed) {
-        win.location.href = url;
-      } else {
-        window.location.href = url;
-      }
-      // Also copy the link so they can paste it anywhere
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.success('Certificate link copied!');
-      } catch {}
-    } catch (err) {
-      win?.close();
-      toast.error('Failed to share certificate.');
-    } finally {
-      setCertLoading(false);
-    }
-  };
 
   const handleAnswer = (qIdx, aIdx) => {
     if (submitted) return;
@@ -171,111 +85,50 @@ export default function DriverTraining({ userEmail, onComplete }) {
 
     if (passed) {
       setSaving(true);
-      const drivers = await base44.entities.Driver.filter({ email: userEmail });
+      const user = await base44.auth.me();
+      const drivers = await base44.entities.Driver.filter({ email: user.email });
       if (drivers.length > 0) {
         await base44.entities.Driver.update(drivers[0].id, {
           training_completed: true,
           training_completed_date: new Date().toISOString().split('T')[0],
         });
-        queryClient.invalidateQueries({ queryKey: ['driver-training-profile', userEmail] });
       }
       setSaving(false);
-      toast.success('Training completed! Certification recorded.');
+      toast.success('App lesson completed. Annual ABC-approved certification still requires administrator evidence review.');
       if (onComplete) onComplete();
     }
   };
 
-  if (alreadyCompleted) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-            <Award className="w-9 h-9 text-emerald-600" />
-          </div>
-          <div>
-            <h2 className="font-display text-xl font-bold text-emerald-800">Training Completed</h2>
-            {completedDate && (
-              <p className="text-emerald-700 text-sm mt-1">
-                Completed on {format(new Date(completedDate), 'MMMM d, yyyy')}
-              </p>
-            )}
-          </div>
-          <p className="text-sm text-emerald-700">
-            Your alcohol safety certification is on file. You're cleared to deliver.
-          </p>
-        </div>
-
-        {/* Certificate access — view on device or share with retailer */}
-        <div className="bg-card border rounded-2xl p-5 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-            <Award className="w-4 h-4" /> Your Training Certificate
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Show this to any retailer to prove you're ACT 157 certified. Opens right on your phone — no printer needed.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              onClick={handleViewCertificate}
-              disabled={certLoading}
-              className="flex-1 h-11"
-            >
-              {certLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
-              {certLoading ? 'Generating...' : 'View Certificate'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleShareCertificate}
-              disabled={certLoading}
-              className="flex-1 h-11"
-            >
-              <Share2 className="w-4 h-4 mr-2" /> Share / Save
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          {onComplete && (
-            <Button onClick={onComplete} className="flex-1 h-11">
-              <CheckCircle2 className="w-4 h-4 mr-2" /> Back to Deliveries
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => { setRetaking(true); setPhase('training'); setPage(0); setAnswers({}); setSubmitted(false); }}
-            className="h-11"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" /> Retake Training
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   if (phase === 'training') {
+    const section = trainingContent[page];
     return (
       <div className="space-y-6">
         <div className="bg-card rounded-2xl border p-6">
-          <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground font-medium uppercase tracking-wide">
+          <div className="flex items-center gap-2 mb-1 text-xs text-muted-foreground font-medium uppercase tracking-wide">
             <BookOpen className="w-4 h-4" />
-            Training Modules
+            Section {page + 1} of {trainingContent.length}
           </div>
-          <h2 className="font-display text-xl font-bold mb-4">Alcohol Delivery Safety Training</h2>
-          <p className="text-sm text-muted-foreground">Review all {trainingContent.length} sections below, then take the quiz to complete your certification.</p>
+          <h2 className="font-display text-xl font-bold mb-4">{section.title}</h2>
+          <div className="w-full bg-muted rounded-full h-1.5 mb-5">
+            <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${((page + 1) / trainingContent.length) * 100}%` }} />
+          </div>
+          <p className="text-sm leading-relaxed text-foreground">{section.content}</p>
         </div>
 
-        {trainingContent.map((section, i) => (
-          <div key={i} className="bg-card rounded-2xl border p-6">
-            <div className="flex items-center gap-2 mb-2 text-xs text-primary font-semibold uppercase tracking-wide">
-              <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs">{i + 1}</span>
-              {section.title}
-            </div>
-            <p className="text-sm leading-relaxed text-foreground">{section.content}</p>
-          </div>
-        ))}
-
-        <Button onClick={() => setPhase('test')} className="w-full h-12">
-          Start Quiz <ChevronRight className="w-4 h-4 ml-1" />
-        </Button>
+        <div className="flex gap-3">
+          {page > 0 && (
+            <Button variant="outline" onClick={() => setPage(p => p - 1)} className="flex-1 h-11">Back</Button>
+          )}
+          {page < trainingContent.length - 1 ? (
+            <Button onClick={() => setPage(p => p + 1)} className="flex-1 h-11">
+              Next <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          ) : (
+            <Button onClick={() => setPhase('test')} className="flex-1 h-11 bg-primary">
+              Start Quiz <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -328,7 +181,7 @@ export default function DriverTraining({ userEmail, onComplete }) {
         </h2>
         <p className={`text-sm ${passed ? 'text-emerald-700' : 'text-red-700'}`}>
           You scored {score} out of {questions.length}.{' '}
-          {passed ? 'Your certification has been recorded.' : 'You need 3/4 to pass. Please review and try again.'}
+          {passed ? 'Your app lesson is recorded; it is not proof of ABC-approved annual certification. Ask an administrator to review your current certificate and Server Awareness form.' : 'You need 3/4 to pass. Please review and try again.'}
         </p>
       </div>
 

@@ -47,7 +47,7 @@ function scoreDriver(driver, order, driverOrders) {
 
 function rankDrivers(drivers, order, activeOrders) {
   return drivers
-    .filter(d => d.status === 'available' || d.status === 'on_delivery')
+    .filter(d => (d.status === 'available' || d.status === 'on_delivery') && d.training_completed === true && d.background_check_status === 'clear')
     .map(d => ({ driver: d, ...scoreDriver(d, order, activeOrders) }))
     .filter(d => d.load < d.capacity) // respect capacity
     .sort((a, b) => a.score - b.score);
@@ -221,14 +221,17 @@ function DriverStatusCard({ driver, activeOrders }) {
 
 export default function AutoDispatch() {
   const queryClient = useQueryClient();
-  const [autoMode, setAutoMode] = useState(false);
+  const [autoMode, setAutoMode] = useState(true);
   const [lastAutoRun, setLastAutoRun] = useState(null);
   const [dispatchLog, setDispatchLog] = useState([]);
 
+  // Driver availability is driven by the realtime Driver subscription (see below)
+  // for instant updates; this poll is only a safety net in case a websocket
+  // event is missed, so it can be infrequent.
   const { data: drivers = [] } = useQuery({
     queryKey: ['dispatch-drivers'],
     queryFn: () => base44.entities.Driver.filter({ is_active: true }, 'name', 100),
-    refetchInterval: 15000,
+    refetchInterval: 30000,
   });
 
   const { data: orders = [] } = useQuery({
@@ -244,8 +247,9 @@ export default function AutoDispatch() {
     mutationFn: ({ order, driver }) =>
       base44.entities.Order.update(order.id, {
         driver_id: driver.id,
+        driver_email: driver.email,
         driver_name: driver.name,
-        status: order.status === 'pending' ? 'confirmed' : order.status,
+        status: order.status,
       }),
     onSuccess: (_, { order, driver, auto }) => {
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
@@ -269,7 +273,8 @@ export default function AutoDispatch() {
 
   // Unassigned orders (no driver yet, active status)
   const unassigned = orders.filter(o =>
-    !o.driver_id && ['pending', 'confirmed', 'preparing', 'pickup_ready'].includes(o.status)
+    !o.driver_id && ['confirmed', 'preparing', 'pickup_ready'].includes(o.status) &&
+    o.stripe_payment_status === 'paid' && o.id_verified_at_checkout === true && o.is_in_legal_zone === true
   );
   const activeOrders = orders.filter(o =>
     ['confirmed', 'preparing', 'pickup_ready', 'in_transit'].includes(o.status)
@@ -281,7 +286,8 @@ export default function AutoDispatch() {
     if (!autoMode) return;
     const interval = setInterval(() => {
       const pending = orders.filter(o =>
-        !o.driver_id && ['pending', 'confirmed'].includes(o.status)
+        !o.driver_id && o.status === 'confirmed' &&
+        o.stripe_payment_status === 'paid' && o.id_verified_at_checkout === true && o.is_in_legal_zone === true
       );
       if (pending.length === 0) return;
       const currentActiveOrders = orders.filter(o =>
@@ -298,12 +304,15 @@ export default function AutoDispatch() {
     return () => clearInterval(interval);
   }, [autoMode, orders, drivers, handleAssign]);
 
-  // Real-time subscriptions
+  // Real-time subscriptions — the PRIMARY auto-refresh mechanism.
+  // Any driver status/location change instantly invalidates the driver query,
+  // which react-query refetches immediately (default staleTime 0), so the
+  // fleet list and available-driver counts update with no manual refresh.
   useEffect(() => {
     const u1 = base44.entities.Order.subscribe(() => queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] }));
     const u2 = base44.entities.Driver.subscribe(() => queryClient.invalidateQueries({ queryKey: ['dispatch-drivers'] }));
     return () => { u1(); u2(); };
-  }, []);
+  }, [queryClient]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
@@ -358,7 +367,7 @@ export default function AutoDispatch() {
       {/* Always-on automation banner */}
       <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
         <BotMessageSquare className="w-4 h-4 flex-shrink-0" />
-        <span><strong>Server automation active:</strong> Every new <em>pending</em> order is automatically dispatched to the nearest available driver (respecting vehicle capacity) in real time — even when this page is closed.</span>
+        <span><strong>Server automation active:</strong> Retailer-confirmed, paid, compliant orders can be dispatched to the nearest qualified driver (respecting vehicle capacity). Pending retailer orders are not dispatched.</span>
       </div>
 
       {autoMode && (

@@ -1,0 +1,42 @@
+{
+  "name": "Slack Alert After Driver Notifications Registered",
+  "description": "Rechecks combined store readiness when a device registers notifications, covering the final driver-readiness requirement.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "FCMToken",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.data.user_email // \"\") != \"\" and (.trigger.data.token // \"\") != \"\" and (.trigger.event_type == \"create\" or any((.trigger.changed_fields // [])[]; . == \"user_email\" or . == \"token\")) }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "slack_driver_notifications_registered",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_completion": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyStoreTaxDriverComplete",
+            "args": {
+              "source_entity": "FCMToken",
+              "record_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check completed tax and driver readiness",
+            "description": "Include registered driver notifications"
+          }
+        }
+      }
+    ]
+  }
+}

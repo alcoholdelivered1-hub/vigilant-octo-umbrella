@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Package, MapPin, Clock, Truck, CheckCircle2, Loader2, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import OrderChat from '@/components/messaging/OrderChat';
+import RichardOrderHold from '@/components/partner/RichardOrderHold';
 
 const STATUS_CONFIG = {
   pending:      { label: 'Pending',      color: 'bg-slate-100 text-slate-600' },
@@ -20,27 +21,36 @@ const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'pickup_ready', 'i
 export default function ActiveOrdersPanel({ storeId, storeName }) {
   const queryClient = useQueryClient();
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: orders = [], isLoading, error, refetch } = useQuery({
     queryKey: ['store-active-orders', storeId],
-    queryFn: () => base44.entities.Order.filter({ store_id: storeId }, '-created_date', 100),
-    select: data => data.filter(o => ACTIVE_STATUSES.includes(o.status)),
+    queryFn: async () => {
+      const { data } = await base44.functions.invoke('getStoreActiveOrders', { store_id: storeId });
+      if (!Array.isArray(data?.orders)) throw new Error(data?.error || 'Orders could not be loaded.');
+      return data.orders;
+    },
     enabled: !!storeId,
     refetchInterval: 15000,
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Order.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['store-active-orders', storeId] }),
+    mutationFn: async ({ id, status }) => {
+      const { data } = await base44.functions.invoke('updateRetailerOrderStatus', { order_id: id, status });
+      if (data?.success !== true) throw new Error(data?.error || 'The order was not updated.');
+      return data;
+    },
+    onSuccess: () => Promise.all(['store-active-orders', 'retailer-active-orders', 'owner-active-orders'].map(key => queryClient.invalidateQueries({ queryKey: [key, storeId] }))),
   });
 
-  const markReady = (order) => updateMutation.mutate({ id: order.id, data: { status: 'pickup_ready' } });
-  const confirmOrder = (order) => updateMutation.mutate({ id: order.id, data: { status: 'confirmed' } });
+  const acceptOrder = (order) => updateMutation.mutate({ id: order.id, status: 'confirmed' });
+  const markReady = (order) => updateMutation.mutate({ id: order.id, status: 'pickup_ready' });
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20 text-muted-foreground">
       <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading orders…
     </div>
   );
+
+  if (error) return <div role="alert" className="p-4 space-y-3 text-sm"><p className="text-destructive">{error?.response?.data?.error || error.message}</p><button type="button" className="text-primary underline" onClick={() => refetch()}>Retry loading orders</button></div>;
 
   if (orders.length === 0) return (
     <div className="text-center py-20 text-muted-foreground">
@@ -52,6 +62,7 @@ export default function ActiveOrdersPanel({ storeId, storeName }) {
 
   return (
     <div className="space-y-4">
+      {updateMutation.data?.driver_alert?.startsWith('failed:') && <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">Order {updateMutation.data.order_number} was marked ready, but the driver notification failed. Contact the assigned driver directly before pickup. Do not repeat the payment.</p>}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
         Live — refreshes every 15 seconds
@@ -123,18 +134,20 @@ export default function ActiveOrdersPanel({ storeId, storeName }) {
                 </div>
               )}
 
+              {updateMutation.isError && updateMutation.variables?.id === order.id && <p role="alert" className="text-sm text-destructive">{updateMutation.error?.response?.data?.error || updateMutation.error.message}</p>}
               {/* Action buttons */}
-              {order.status === 'pending' && (
+              <RichardOrderHold order={order} />
+              {order.status === 'pending' && (order.order_number !== 'SS-MS7OHVYB' || order.release_ready) && (
                 <button
-                  onClick={() => confirmOrder(order)}
+                  onClick={() => acceptOrder(order)}
                   disabled={updateMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-emerald-700 transition-colors disabled:opacity-60"
                 >
                   {updateMutation.isPending
                     ? <Loader2 className="w-4 h-4 animate-spin" />
                     : <CheckCircle2 className="w-4 h-4" />
                   }
-                  Confirm Order
+                  Accept Order
                 </button>
               )}
 
@@ -153,7 +166,7 @@ export default function ActiveOrdersPanel({ storeId, storeName }) {
               )}
 
               {/* Chat */}
-              <details className="group">
+              <details id={`order-chat-${order.id}`} className="group">
                 <summary className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none list-none py-1">
                   <MessageCircle className="w-3.5 h-3.5" />
                   Chat with customer / driver

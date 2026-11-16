@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 // Category mapping from CSV categories to our Product entity enum values
 const CATEGORY_MAP = {
@@ -33,6 +34,8 @@ function parseCSV(text) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const csvUrl = Deno.env.get('PRODUCTS_CSV_URL');
     if (!csvUrl) {

@@ -1,27 +1,85 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import Stripe from 'npm:stripe@14.21.0';
+import { secrets, waitUntil } from 'base44:runtime';
+import { resolveAppOrigin } from '../../shared/appOrigin.ts';
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
-
-Deno.serve(async (req) => {
+export default async function(req) {
+  try {
+  const base44 = createClientFromRequest(req);
+  await base44.auth.me().catch(() => null);
+  const stripe = new Stripe(secrets.get('STRIPE_SECRET_KEY'));
   const signature = req.headers.get('stripe-signature');
   const body = await req.text();
 
+  // Two webhook endpoints point here: a Connect webhook (retailer direct-charge
+  // events from connected accounts) and an Account webhook (platform payments such
+  // as the founding membership). Each has its own signing secret.
+  // The test-mode endpoint (used by the end-to-end test retailer) has its own signing secret.
+  const webhookSecrets = [secrets.get('STRIPE_WEBHOOK_SECRET'), secrets.get('STRIPE_ACCOUNT_WEBHOOK_SECRET'), secrets.get('STRIPE_TEST_WEBHOOK_SECRET')].filter(Boolean);
   let event;
-  try {
-    event = await stripe.webhooks.constructEventAsync(
-      body,
-      signature,
-      Deno.env.get('STRIPE_WEBHOOK_SECRET')
-    );
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+  let verifyError;
+  for (const secret of webhookSecrets) {
+    try {
+      event = await stripe.webhooks.constructEventAsync(body, signature, secret);
+      break;
+    } catch (err) {
+      verifyError = err;
+    }
+  }
+  if (!event) {
+    console.error('Webhook signature verification failed:', verifyError?.message);
+    return new Response(`Webhook Error: ${verifyError?.message}`, { status: 400 });
   }
 
-  if (event.type === 'checkout.session.completed') {
+  if (event.type.startsWith('checkout.session.') && event.data.object.metadata?.base44_app_id !== secrets.get('BASE44_APP_ID')) {
+    return Response.json({ received: true, skipped: 'Different app' });
+  }
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
     const session = event.data.object;
+    if (session.payment_status !== 'paid') return Response.json({ received: true });
     const m = session.metadata || {};
+
+    if (m.purchase_type === 'founding_platinum_membership') {
+      if (!m.customer_email) {
+        console.warn('Founding membership payment is missing customer email');
+        return Response.json({ received: true });
+      }
+
+      try {
+        const base44 = createClientFromRequest(req);
+        const existingMemberships = await base44.asServiceRole.entities.FoundingMembership.filter({
+          stripe_session_id: session.id,
+        });
+
+        const membershipData = {
+          customer_email: m.customer_email,
+          customer_name: m.customer_name || session.customer_details?.name || '',
+          tier: 'founding_platinum',
+          amount_paid: Number(m.amount_paid || 500),
+          currency: session.currency || 'usd',
+          status: 'active',
+          stripe_session_id: session.id,
+          stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : '',
+          purchased_at: new Date().toISOString(),
+          membership_terms_version: m.terms_version || 'founding-platinum-2026-09-12',
+          service_discount_amount: Number(m.service_discount_amount || 2),
+          annual_discount_uses: Number(m.annual_discount_uses || 12),
+          is_transferable: false,
+          notes: 'No alcohol included. Membership purchase only.',
+        };
+
+        if (existingMemberships.length > 0) {
+          await base44.asServiceRole.entities.FoundingMembership.update(existingMemberships[0].id, membershipData);
+        } else {
+          await base44.asServiceRole.entities.FoundingMembership.create(membershipData);
+        }
+        console.log(`Founding Platinum membership activated for ${m.customer_email}`);
+        return Response.json({ received: true });
+      } catch (err) {
+        console.error('Failed to activate founding membership:', err.message);
+        return new Response('Membership activation failed', { status: 500 });
+      }
+    }
 
     if (!m.order_number || !m.customer_email) {
       console.warn('Missing order metadata, skipping order creation');
@@ -30,6 +88,22 @@ Deno.serve(async (req) => {
 
     try {
       const base44 = createClientFromRequest(req);
+      const store = await base44.asServiceRole.entities.Store.get(m.store_id).catch(() => null);
+      if (!store) {
+        console.error(`Paid checkout session ${session.id} references unknown store ${m.store_id}`);
+        return new Response('Unknown store', { status: 404 });
+      }
+
+      // Test-store sessions run in Stripe test mode on the platform account (no Connect account).
+      const isTestStoreOrder = store.is_test_store === true && String(m.test_store) === 'true';
+      // Otherwise only a direct charge on the mapped retailer account can create a retailer sale.
+      if (!isTestStoreOrder && (!event.account || event.account !== store.stripe_connect_account_id || event.account !== m.stripe_connected_account_id)) {
+        console.error('Paid session requires reconciliation: retailer account mismatch', session.id);
+        return Response.json({ received: true, reconciliation_required: true });
+      }
+      if (session.amount_total !== Math.round(Number(m.grand_total) * 100)) {
+        throw new Error('Paid checkout total does not match order metadata');
+      }
 
       // Check if order already exists (idempotency guard)
       const existing = await base44.asServiceRole.entities.Order.filter({
@@ -37,96 +111,131 @@ Deno.serve(async (req) => {
       });
 
       if (existing.length > 0) {
-        // Order already exists — just update payment status
+        if (existing[0].store_id !== m.store_id ||
+            (existing[0].stripe_session_id && existing[0].stripe_session_id !== session.id)) {
+          return new Response('Order already belongs to another payment or retailer', { status: 409 });
+        }
         await base44.asServiceRole.entities.Order.update(existing[0].id, {
           stripe_payment_status: 'paid',
           stripe_session_id: session.id,
-          status: existing[0].status === 'pending' ? 'confirmed' : existing[0].status,
+          stripe_connect_account_id: m.stripe_connected_account_id || '',
+          stripe_application_fee_amount: Number(m.application_fee_cents || 0) / 100,
         });
         console.log(`Order ${m.order_number} payment status updated (already existed)`);
         return Response.json({ received: true });
       }
 
       // Parse items from metadata
-      let items = [];
-      try { items = JSON.parse(m.items_json || '[]'); } catch {}
+      const parts = Number(m.items_parts || 0);
+      if (!Number.isInteger(parts) || parts < 0 || parts > 20) throw new Error('Invalid cart metadata');
+      const items = JSON.parse(parts ? Array.from({ length: parts }, (_, i) => m[`items_${i}`] || '').join('') : (m.items_json || '[]'));
+      if (!Array.isArray(items) || items.length === 0) throw new Error('Paid order is missing cart items');
 
       const subtotal = parseFloat(m.subtotal) || 0;
       const delivery_fee = parseFloat(m.delivery_fee) || 0;
       const mileage_surcharge = parseFloat(m.mileage_surcharge) || 0;
       const distance_miles = parseFloat(m.distance_miles) || 0;
+      const delivery_latitude = parseFloat(m.delivery_latitude) || null;
+      const delivery_longitude = parseFloat(m.delivery_longitude) || null;
       const service_fee = parseFloat(m.service_fee) || 0;
       const tax = parseFloat(m.tax) || 0;
-      const alcohol_excise_tax = parseFloat(m.alcohol_excise_tax) || 0;
       const tip = parseFloat(m.tip) || 0;
       const grand_total = parseFloat(m.grand_total) || 0;
 
-      // Create the order now that payment is confirmed
+      // Re-check the server-created checkout ID verification referenced by Stripe metadata.
+      let checkoutVerification = null;
+      if (m.checkout_verification_id) {
+        try {
+          checkoutVerification = await base44.asServiceRole.entities.IDVerification.get(m.checkout_verification_id);
+        } catch {}
+      }
+      const checkoutIdVerified = Boolean(
+        checkoutVerification &&
+        checkoutVerification.verification_type === 'checkout' &&
+        checkoutVerification.is_verified === true &&
+        checkoutVerification.customer_email?.toLowerCase() === m.customer_email?.toLowerCase()
+      );
+      if (!checkoutIdVerified) {
+        console.error(`Paid session ${session.id} has no valid checkout ID verification; order ${m.order_number} requires compliance intervention`);
+      }
+
+      // Generate an unguessable receipt token for anonymous receipt lookup.
+      // The timestamp-derived order number is display-only and never a credential.
+      const receipt_token = crypto.randomUUID();
+
+      // Create the order now that payment is confirmed. New paid orders remain pending
+      // until retailer/driver workflow advances them; payment alone does not mean store-confirmed.
       const order = await base44.asServiceRole.entities.Order.create({
         order_number: m.order_number,
+        receipt_token,
         customer_email: m.customer_email,
         customer_name: m.customer_name,
         customer_phone: m.customer_phone,
         store_id: m.store_id,
         store_name: m.store_name,
-        store_email: m.store_email || '',
         items,
         subtotal,
         delivery_fee,
         mileage_surcharge,
         distance_miles,
-        delivery_latitude: parseFloat(m.delivery_latitude) || null,
-        delivery_longitude: parseFloat(m.delivery_longitude) || null,
+        delivery_latitude,
+        delivery_longitude,
         service_fee,
         tax,
-        alcohol_excise_tax,
         tip,
         total: grand_total,
         delivery_address: m.delivery_address,
-        notes: m.notes || '',
-        status: 'confirmed',
+        notes: `${isTestStoreOrder ? '[TEST STORE ORDER] ' : ''}${checkoutIdVerified ? (m.notes || '') : `${m.notes || ''}\n[COMPLIANCE_HOLD] Paid order is missing a valid server-side checkout ID verification.`}`.trim(),
+        status: 'pending',
         stripe_payment_status: 'paid',
         stripe_session_id: session.id,
-        id_verified_at_checkout: true, // Customer confirmed DOB + age at checkout
+        stripe_connect_account_id: m.stripe_connected_account_id || '',
+        stripe_application_fee_amount: Number(m.application_fee_cents || 0) / 100,
+        id_verified_at_checkout: checkoutIdVerified,
         is_in_legal_zone: m.is_in_legal_zone === 'true',
       });
 
       console.log(`Order ${m.order_number} created after successful payment`);
 
-      // --- Deduct referral credits used for this order ---
-      const referralCreditUsed = parseFloat(m.referral_credit_applied) || 0;
-      if (referralCreditUsed > 0) {
-        try {
-          const users = await base44.asServiceRole.entities.User.filter({ email: m.customer_email });
-          if (users.length > 0) {
-            const newCredits = Math.max(0, (users[0].referral_credits || 0) - referralCreditUsed);
-            await base44.asServiceRole.entities.User.update(users[0].id, { referral_credits: newCredits });
-            console.log(`Deducted ${referralCreditUsed} cents referral credit from ${m.customer_email}`);
-          }
-        } catch (e) {
-          console.error('Failed to deduct referral credits:', e.message);
-        }
-      }
-
-      // NOTE: retailer notification is owned by the "Fulfill Order After Payment"
-      // workflow (which fires on this same paid transition) to avoid duplicate
-      // store emails. We only send the customer-facing confirmation here.
-
-      // Send order confirmation email to customer
-      try {
-        await base44.asServiceRole.functions.invoke('sendOrderConfirmationEmail', {
+      // Link the already-created server-side checkout verification to this paid order.
+      if (checkoutVerification) {
+        await base44.asServiceRole.entities.IDVerification.update(checkoutVerification.id, {
+          customer_name: m.customer_name || checkoutVerification.customer_name || '',
           order_id: order.id,
-          order_number: m.order_number,
-          customer_email: m.customer_email,
-          customer_name: m.customer_name,
-          store_name: m.store_name,
-          items: items,
-          total: grand_total,
-          delivery_address: m.delivery_address,
         });
-      } catch (e) {
-        console.error('Failed to send confirmation email:', e.message);
       }
+
+      // Send receipt email to the customer (transactional, non-blocking).
+      waitUntil((async () => {
+        try {
+          const firstName = (m.customer_name || '').split(' ')[0] || 'there';
+          const itemsSummary = items.map(i => `${i.product_name} x${i.quantity} — $${Number(i.subtotal || 0).toFixed(2)}`).join('\n');
+          const origin = resolveAppOrigin(req);
+          await base44.asServiceRole.integrations.Core.SendEmail({
+            to: m.customer_email,
+            template_name: 'OrderReceipt',
+            category: 'transactional',
+            variables: {
+              first_name: firstName,
+              order_id: m.order_number,
+              order_date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+              store_name: m.store_name || '',
+              delivery_address: m.delivery_address || '',
+              items_summary: itemsSummary,
+              subtotal: `$${Number(subtotal).toFixed(2)}`,
+              delivery_fee: `$${Number(delivery_fee).toFixed(2)}`,
+              service_fee: `$${Number(service_fee).toFixed(2)}`,
+              tax: `$${Number(tax).toFixed(2)}`,
+              tip: `$${Number(tip).toFixed(2)}`,
+              total: `$${Number(grand_total).toFixed(2)}`,
+              cta_url: `${origin}/receipt/${m.order_number}?token=${receipt_token}`,
+            },
+          });
+          console.log(`Receipt email sent for order ${m.order_number}`);
+        } catch (emailErr) {
+          console.error(`Failed to send receipt email for order ${m.order_number}:`, emailErr.message);
+        }
+      })());
 
     } catch (err) {
       console.error('Failed to create order after payment:', err.message);
@@ -140,190 +249,71 @@ Deno.serve(async (req) => {
     console.log(`Checkout session expired: ${event.data.object.metadata?.order_number}`);
   }
 
-  // Handle Stripe Connect account updates (driver + retailer onboarding completion)
+  // Notify the admin when a Stripe payout is processed or fails, for cash-flow tracking.
+  if (event.type === 'payout.paid' || event.type === 'payout.failed') {
+    const payout = event.data.object;
+    waitUntil((async () => {
+      try {
+        const base44 = createClientFromRequest(req);
+        const amount = (payout.amount || 0) / 100;
+        const currency = (payout.currency || 'usd').toUpperCase();
+        const status = event.type === 'payout.paid' ? 'paid' : 'failed';
+        const arrivalDate = payout.arrival_date
+          ? new Date(payout.arrival_date * 1000).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })
+          : 'N/A';
+        const destination = payout.destination?.id || payout.method || 'N/A';
+        const subject = event.type === 'payout.paid'
+          ? `Stripe payout of ${currency} ${amount.toFixed(2)} processed`
+          : `Stripe payout of ${currency} ${amount.toFixed(2)} FAILED`;
+        const body = `A Stripe payout has been ${status}.\n\n`
+          + `Amount: ${currency} ${amount.toFixed(2)}\n`
+          + `Status: ${status}\n`
+          + `Expected arrival: ${arrivalDate}\n`
+          + `Destination: ${destination}\n`
+          + `Payout ID: ${payout.id}\n`
+          + `Statement descriptor: ${payout.statement_descriptor || 'N/A'}\n`;
+        await base44.asServiceRole.integrations.Core.SendEmail({
+          to: secrets.get('STORE_MANAGER_EMAIL'),
+          subject,
+          body,
+          category: 'transactional',
+        });
+        console.log(`Payout ${status} notification sent for ${payout.id}: ${currency} ${amount.toFixed(2)}`);
+      } catch (err) {
+        console.error(`Failed to send payout notification for ${payout.id}:`, err.message);
+      }
+    })());
+  }
+
+  // Refresh retailer payment readiness without bypassing go-live compliance checks.
   if (event.type === 'account.updated') {
     const account = event.data.object;
-    const base44 = createClientFromRequest(req);
-
-    // Mark store as onboarded if charges + payouts are enabled
-    if (account.charges_enabled && account.payouts_enabled) {
+    {
       try {
+        const base44 = createClientFromRequest(req);
         const stores = await base44.asServiceRole.entities.Store.filter({
           stripe_connect_account_id: account.id,
         });
         for (const store of stores) {
-          if (!store.stripe_connect_onboarded) {
+          const ready = account.charges_enabled && account.payouts_enabled && account.details_submitted;
+          const status = ready ? 'connected' : 'pending';
+          if (store.stripe_connection_status !== status) {
             await base44.asServiceRole.entities.Store.update(store.id, {
-              stripe_connect_onboarded: true,
+              stripe_connection_status: status,
+              ...(ready ? { stripe_connected_at: new Date().toISOString() } : {}),
             });
-            console.log(`Store ${store.name} marked as Stripe onboarded`);
           }
+          // Stripe approval alone does not approve a license, agreement or catalog.
         }
-      } catch (e) {
-        console.error('Failed to update store onboarding status:', e.message);
+      } catch (err) {
+        console.error(`Failed to auto-activate store for account ${account.id}:`, err.message);
       }
     }
-
-    // Mark driver as onboarded (stripe_connect_account_id is stored on the user)
-    try {
-      const users = await base44.asServiceRole.entities.User.filter({
-        stripe_connect_account_id: account.id,
-      });
-      for (const u of users) {
-        if (!u.stripe_connect_onboarded) {
-          await base44.asServiceRole.entities.User.update(u.id, {
-            stripe_connect_onboarded: true,
-          });
-          console.log(`Driver ${u.email} marked as Stripe onboarded`);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to update driver onboarding status:', e.message);
-    }
-  }
-
-  // Handle refunds — mark order as refunded
-  if (event.type === 'charge.refunded') {
-    const charge = event.data.object;
-    const sessionId = charge.metadata?.order_number;
-
-    try {
-      const base44 = createClientFromRequest(req);
-      const orders = await base44.asServiceRole.entities.Order.filter({
-        order_number: sessionId,
-      });
-
-      if (orders.length > 0) {
-        const order = orders[0];
-        await base44.asServiceRole.entities.Order.update(order.id, {
-          status: 'cancelled',
-          stripe_payment_status: 'failed',
-          refusal_reason: 'Payment refunded via Stripe',
-        });
-
-        // Notify customer, retailer, and admin of refund
-        try {
-          await base44.asServiceRole.functions.invoke('notifyOrderStatusChange', {
-            order_id: order.id,
-            order_number: order.order_number,
-            old_status: order.status,
-            new_status: 'refunded',
-            customer_email: order.customer_email,
-            store_id: order.store_id,
-          });
-        } catch (e) {
-          console.error('Failed to notify refund:', e.message);
-        }
-
-        console.log(`Order ${order.order_number} marked as refunded`);
-      }
-    } catch (e) {
-      console.error('Failed to process refund:', e.message);
-    }
-  }
-
-  // ── Subscription lifecycle events ──────────────────────────────
-
-  if (event.type === 'customer.subscription.created' ||
-      event.type === 'customer.subscription.updated' ||
-      event.type === 'customer.subscription.deleted') {
-    const sub = event.data.object;
-    const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
-
-    try {
-      const base44 = createClientFromRequest(req);
-
-      // Find user by stripe_customer_id, fall back to email from Stripe customer
-      let users = await base44.asServiceRole.entities.User.filter({
-        stripe_customer_id: customerId,
-      });
-
-      if (users.length === 0 && customerId) {
-        const customer = await stripe.customers.retrieve(customerId);
-        if (customer.email) {
-          users = await base44.asServiceRole.entities.User.filter({ email: customer.email });
-        }
-      }
-
-      if (users.length > 0) {
-        const user = users[0];
-        const status = event.type === 'customer.subscription.deleted'
-          ? 'canceled'
-          : sub.status;
-
-        await base44.asServiceRole.entities.User.update(user.id, {
-          stripe_customer_id: customerId,
-          stripe_subscription_id: sub.id,
-          membership_status: status,
-          membership_expires_at: sub.current_period_end
-            ? new Date(sub.current_period_end * 1000).toISOString()
-            : null,
-        });
-
-        console.log(`User ${user.email} membership updated: ${status} (sub ${sub.id})`);
-      } else {
-        console.warn(`No user found for Stripe customer ${customerId}`);
-      }
-    } catch (e) {
-      console.error(`Failed to process ${event.type}:`, e.message);
-    }
-  }
-
-  // ── Invoice payment events (subscription invoices only) ────────
-
-  if (event.type === 'invoice.payment_succeeded' || event.type === 'invoice.payment_failed') {
-    const invoice = event.data.object;
-
-    if (invoice.subscription) {
-      try {
-        const base44 = createClientFromRequest(req);
-        const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
-
-        let users = await base44.asServiceRole.entities.User.filter({
-          stripe_customer_id: customerId,
-        });
-
-        if (users.length === 0 && customerId) {
-          const customer = await stripe.customers.retrieve(customerId);
-          if (customer.email) {
-            users = await base44.asServiceRole.entities.User.filter({ email: customer.email });
-          }
-        }
-
-        if (users.length > 0) {
-          const user = users[0];
-
-          if (event.type === 'invoice.payment_succeeded') {
-            await base44.asServiceRole.entities.User.update(user.id, {
-              stripe_customer_id: customerId,
-              stripe_subscription_id: invoice.subscription,
-              membership_status: 'active',
-              membership_expires_at: invoice.period_end
-                ? new Date(invoice.period_end * 1000).toISOString()
-                : null,
-            });
-            console.log(`User ${user.email} membership activated (invoice ${invoice.id})`);
-          } else {
-            await base44.asServiceRole.entities.User.update(user.id, {
-              membership_status: 'past_due',
-            });
-            console.log(`User ${user.email} membership past_due (invoice ${invoice.id})`);
-          }
-        }
-      } catch (e) {
-        console.error(`Failed to process ${event.type}:`, e.message);
-      }
-    }
-  }
-
-  // ── Payment intent succeeded ───────────────────────────────────
-  // Orders are already handled via checkout.session.completed above;
-  // subscription payments via invoice.payment_succeeded above.
-  // Log for visibility.
-  if (event.type === 'payment_intent.succeeded') {
-    const pi = event.data.object;
-    console.log(`Payment intent succeeded: ${pi.id} ($${(pi.amount / 100).toFixed(2)} ${pi.currency})`);
   }
 
   return Response.json({ received: true });
-});
+  } catch (error) {
+    console.error('Stripe webhook error:', error.message);
+    return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
+  }
+}

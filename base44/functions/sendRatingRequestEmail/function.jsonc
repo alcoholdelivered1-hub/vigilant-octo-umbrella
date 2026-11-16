@@ -1,0 +1,16 @@
+{
+  "name": "sendRatingRequestEmail",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "When an order is marked as delivered, automatically emails the customer a link to rate their driver.",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Send Rating Request Email on Delivery"
+    }
+  ]
+}

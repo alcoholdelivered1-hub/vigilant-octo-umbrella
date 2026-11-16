@@ -1,0 +1,52 @@
+{
+  "name": "RetailerEmailAlert",
+  "type": "object",
+  "properties": {
+    "gmail_message_id": {
+      "type": "string"
+    },
+    "thread_id": {
+      "type": "string"
+    },
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "sender": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "gmail_message_id",
+    "thread_id",
+    "store_id",
+    "store_name"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

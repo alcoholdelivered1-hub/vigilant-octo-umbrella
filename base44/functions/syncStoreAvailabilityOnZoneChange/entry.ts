@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 /**
  * Triggered by an entity automation when a DeliveryZone is updated or deleted.
@@ -7,6 +8,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
  */
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
+  const { authorized, response } = await assertAdmin(base44);
+  if (!authorized) return response;
 
   const body = await req.json();
   const { event, data, old_data } = body;

@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Truck, MapPin, Clock, AlertCircle, CheckCircle2, Zap, Map, MessageSquare } from 'lucide-react';
-import SmsDialog from '@/components/admin/SmsDialog';
+import { ArrowLeft, Truck, MapPin, Clock, AlertCircle, CheckCircle2, Zap, Map } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, addMinutes } from 'date-fns';
-import { toast } from 'sonner';
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', color: 'bg-slate-100 text-slate-800', icon: Clock },
@@ -34,30 +32,6 @@ const ETA_MINUTES = {
 export default function ActiveDeliveries() {
   const [selectedZone, setSelectedZone] = useState('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [pushing, setPushing] = useState({});
-  const [smsOrder, setSmsOrder] = useState(null);
-  const queryClient = useQueryClient();
-
-  const handlePushToClover = async (order) => {
-    setPushing((p) => ({ ...p, [order.id]: true }));
-    try {
-      const res = await base44.functions.invoke('pushOrderToClover', { order_id: order.id });
-      const data = res?.data || res;
-      if (data?.success) {
-        toast.success(`Pushed to Clover POS — open order ${data.clover?.order_id}`, {
-          description: `${data.clover?.line_items_pushed} item(s) · ${data.clover?.merchant_name || ''}`,
-        });
-        queryClient.invalidateQueries({ queryKey: ['active-orders'] });
-      } else if (data?.skipped) {
-        toast.warning(data.reason, { description: data.hint || '' });
-      } else {
-        toast.error(data?.error || 'Push failed', { description: data?.reason || data?.hint || '' });
-      }
-    } catch (e) {
-      toast.error('Push to Clover failed', { description: e.message });
-    }
-    setPushing((p) => ({ ...p, [order.id]: false }));
-  };
 
   // Fetch active orders
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
@@ -267,44 +241,12 @@ export default function ActiveDeliveries() {
                         )}
                       </div>
                     )}
-
-                    {/* Clover POS push */}
-                    <div className="mt-4 pt-4 border-t flex items-center justify-between gap-3">
-                      <span className="text-xs">
-                        {order.clover_order_id ? (
-                          <span className="text-emerald-600 font-medium">✓ On Clover POS</span>
-                        ) : (
-                          <span className="text-muted-foreground">Not pushed to Clover POS</span>
-                        )}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={pushing[order.id]}
-                          onClick={() => handlePushToClover(order)}
-                          className="h-8 text-xs"
-                        >
-                          {pushing[order.id] ? 'Pushing…' : order.clover_order_id ? 'Re-push to Clover' : 'Push to Clover POS'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSmsOrder(order)}
-                          className="h-8 text-xs"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" /> SMS
-                        </Button>
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
               );
             })
           )}
         </div>
-
-        <SmsDialog order={smsOrder} open={!!smsOrder} onOpenChange={(o) => !o && setSmsOrder(null)} />
       </div>
     </div>
   );

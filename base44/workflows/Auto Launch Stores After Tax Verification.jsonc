@@ -1,0 +1,42 @@
+{
+  "name": "Auto Launch Stores After Tax Verification",
+  "description": "Recheck any retailer awaiting launch when its retailer-specific tax setup is verified. Activate only when every required launch check passes.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "TaxConfirmation",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.store_id != null and .trigger.data.store_id != \"\" and .trigger.data.status == \"confirmed\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_launch_stores_after_tax_verification",
+      "version": "1.1",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_and_launch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "retailerGoLive",
+            "args": {
+              "action": "auto_launch",
+              "store_id": "${ .trigger.data.store_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check and launch stores",
+            "description": "Activate only fully verified stores"
+          }
+        }
+      }
+    ]
+  }
+}

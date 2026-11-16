@@ -1,0 +1,4 @@
+{
+  "name": "checkFirebaseHealth",
+  "entry": "entry.ts"
+}

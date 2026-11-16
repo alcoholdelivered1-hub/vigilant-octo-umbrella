@@ -1,0 +1,42 @@
+{
+  "name": "Auto Dispatch Priority Store Deliveries",
+  "description": "Assign the nearest available, production-cleared internal driver after retailer acceptance at Beverage King or Woodlands. Never bypass payment, ID, store launch or coverage checks.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Order",
+      "events": [
+        "create",
+        "update"
+      ]
+    },
+    "condition": "${ (.trigger.data.store_id == \"6a32d14d09b760f592dbf19e\" or .trigger.data.store_id == \"6abbd1a16dc8d922f3b73caf\") and (.trigger.data.status == \"confirmed\" or .trigger.data.status == \"preparing\" or .trigger.data.status == \"pickup_ready\") and .trigger.data.stripe_payment_status == \"paid\" and (.trigger.data.driver_id // \"\") == \"\" and (.trigger.event_type == \"create\" or .trigger.old_data.status != .trigger.data.status or .trigger.old_data.stripe_payment_status != \"paid\" or (.trigger.old_data.driver_id // \"\") != \"\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_dispatch_priority_store_deliveries",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "assign_driver": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoDispatchOrder",
+            "args": {
+              "order_id": "${ .trigger.entity_id }",
+              "priority_only": true
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Assign cleared delivery driver",
+            "description": "Paid, retailer-accepted orders only"
+          }
+        }
+      }
+    ]
+  }
+}

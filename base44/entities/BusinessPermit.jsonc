@@ -1,0 +1,118 @@
+{
+  "name": "BusinessPermit",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string",
+      "description": "Store this permit belongs to"
+    },
+    "store_email": {
+      "type": "string",
+      "description": "Store contact email, used to grant the retailer read access to their own permit"
+    },
+    "permit_type": {
+      "description": "Type of business permit, license, or background check document",
+      "enum": [
+        "arkansas_abc_third_party_delivery",
+        "city_business_license",
+        "employer_background_check"
+      ],
+      "type": "string"
+    },
+    "permit_number": {
+      "description": "Official permit or license number",
+      "type": "string"
+    },
+    "legal_name": {
+      "description": "Business or permittee name shown on the document",
+      "type": "string"
+    },
+    "permittee_name": {
+      "description": "Individual permittee name, when applicable",
+      "type": "string"
+    },
+    "issuing_authority": {
+      "type": "string"
+    },
+    "jurisdiction": {
+      "type": "string"
+    },
+    "business_address": {
+      "type": "string"
+    },
+    "issue_date": {
+      "format": "date",
+      "type": "string"
+    },
+    "effective_date": {
+      "format": "date",
+      "type": "string"
+    },
+    "expiration_date": {
+      "format": "date",
+      "type": "string"
+    },
+    "status": {
+      "default": "active",
+      "enum": [
+        "active",
+        "expired",
+        "suspended",
+        "revoked"
+      ],
+      "type": "string"
+    },
+    "document_on_file": {
+      "default": false,
+      "type": "boolean"
+    },
+    "document_filename": {
+      "type": "string"
+    },
+    "document_file_uri": {
+      "type": "string",
+      "description": "Private uploaded permit, license, or background check PDF"
+    },
+    "verification_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "permit_type",
+    "permit_number",
+    "legal_name",
+    "issuing_authority",
+    "expiration_date",
+    "status",
+    "document_on_file"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.store_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

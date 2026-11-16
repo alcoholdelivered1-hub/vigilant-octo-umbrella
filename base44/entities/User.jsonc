@@ -8,38 +8,87 @@
       "enum": [
         "admin",
         "user",
-        "driver"
+        "customer",
+        "driver",
+        "retailer_staff",
+        "retailer_owner"
       ],
-      "default": "user"
+      "default": "user",
+      "description": "User role: admin, user/customer, driver, retailer_staff, retailer_owner",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "referral_code": {
       "type": "string"
     },
     "referred_by_code": {
-      "type": "string"
+      "type": "string",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "referred_by_email": {
-      "type": "string"
+      "type": "string",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "referral_count": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "referral_credits": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "loyalty_points": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "loyalty_total_spent": {
       "type": "number",
-      "default": 0
-    },
-    "loyalty_bonus_month": {
-      "type": "string",
-      "description": "YYYY-MM of the last month a monthly loyalty bonus was awarded (dedup so a customer is only bonused once per month)"
+      "default": 0,
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "onboarding_complete": {
       "type": "boolean",
@@ -74,41 +123,19 @@
     },
     "stripe_connect_account_id": {
       "type": "string",
-      "description": "Stripe Connect Express account ID for driver payouts"
+      "description": "Stripe Connect Express account ID for driver payouts",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
     },
     "stripe_connect_onboarded": {
       "type": "boolean",
       "default": false,
       "description": "True when the driver has completed Stripe Connect onboarding"
-    },
-    "stripe_customer_id": {
-      "type": "string",
-      "description": "Stripe customer ID for membership subscription billing"
-    },
-    "stripe_subscription_id": {
-      "type": "string",
-      "description": "Stripe subscription ID for the user's membership"
-    },
-    "membership_status": {
-      "type": "string",
-      "enum": [
-        "none",
-        "trialing",
-        "active",
-        "past_due",
-        "canceled",
-        "incomplete",
-        "incomplete_expired",
-        "unpaid",
-        "paused"
-      ],
-      "default": "none",
-      "description": "Current membership subscription status synced from Stripe"
-    },
-    "membership_expires_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "When the current membership billing period ends"
     }
   },
   "required": [

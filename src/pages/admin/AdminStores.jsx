@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,18 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, ShieldCheck, MapPin, TrendingUp, Mail, CreditCard, ExternalLink, ArrowRight } from 'lucide-react';
-import PosCredentialsForm from '@/components/retailer/PosCredentialsForm';
-import DownloadContractButton from '@/components/partner/DownloadContractButton';
+import { Plus, ShieldCheck, MapPin, TrendingUp, Mail, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
+import StripeOnboardingHub from '@/components/admin/StripeOnboardingHub';
+import StoreTemplateLink from '@/components/onboarding/StoreTemplateLink';
+import RetailerChatButton from '@/components/messaging/RetailerChatButton';
+import RetailerEmailDialog from '@/components/messaging/RetailerEmailDialog';
+import RetailerEmailAlerts from '@/components/messaging/RetailerEmailAlerts';
+import RetailerEmailAttentionButton from '@/components/messaging/RetailerEmailAttentionButton';
+import useRetailerEmailAttention from '@/components/messaging/useRetailerEmailAttention';
+import useRetailerOnboardingAttention from '@/components/admin/useRetailerOnboardingAttention';
+import RetailerOnboardingAttentionButton from '@/components/admin/RetailerOnboardingAttentionButton';
+import EmployerBackgroundCheckPanel from '@/components/admin/EmployerBackgroundCheckPanel';
 
 const TIERS = [
   { value: 'premium', label: '★ Premium — $150/mo', color: 'text-amber-600 bg-amber-50 border-amber-200' },
@@ -19,12 +27,43 @@ const TIERS = [
   { value: 'standard', label: 'Standard — Free', color: 'text-muted-foreground bg-muted border-border' },
 ];
 
-const BEVERAGE_KING_STORE_ID = '6a32d14d09b760f592dbf19e';
-
 export default function AdminStores() {
   const [open, setOpen] = useState(false);
-  const [posStore, setPosStore] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [emailSelection, setEmailSelection] = useState(null);
+  const emailAttention = useRetailerEmailAttention();
+  const onboardingAttention = useRetailerOnboardingAttention();
 
+  const handleDownloadContract = async (store) => {
+    setDownloadingId(store.id);
+    try {
+      const { appId, token, functionsVersion, appBaseUrl } = (await import('@/lib/app-params')).appParams;
+      const baseUrl = appBaseUrl || '';
+      const ver = functionsVersion || 'v1';
+      const url = `${baseUrl}/api/apps/${appId}/functions/${ver}/generateRetailerContract`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ store_id: store.id }),
+      });
+      if (!response.ok) throw new Error('Failed to generate contract');
+      const blob = await response.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = `RetailerContract_${store.name.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(objUrl);
+      toast.success(`Contract downloaded for ${store.name}`);
+    } catch (err) {
+      toast.error('Failed to generate contract');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
   const [form, setForm] = useState({ name: '', license_number: '', address: '', city: '', county: '', zip_code: '', phone: '', email: '', operating_hours_start: '07:00', operating_hours_end: '01:00', saturday_hours_start: '07:00', saturday_hours_end: '00:00', sunday_closed: true });
   const queryClient = useQueryClient();
 
@@ -32,18 +71,6 @@ export default function AdminStores() {
     queryKey: ['admin-stores-list'],
     queryFn: () => base44.entities.Store.list(),
   });
-
-  // Fetch POS credentials so we can build the Clover "Authorize Merchant" link
-  // from each store's saved App ID.
-  const { data: creds = [] } = useQuery({
-    queryKey: ['admin-pos-credentials'],
-    queryFn: () => base44.entities.StorePosCredential.list(),
-  });
-  const credByStore = useMemo(() => {
-    const m = {};
-    for (const c of creds) m[c.store_id] = c;
-    return m;
-  }, [creds]);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Store.create(data),
@@ -115,6 +142,13 @@ export default function AdminStores() {
         </Dialog>
       </div>
 
+      <div className="mb-6 flex flex-wrap gap-2"><Button asChild><Link to="/admin/retailer-onboarding">Retailer Partner Dashboard</Link></Button><Button asChild variant="outline"><Link to="/admin/retailer-contacts">Retailer Contact Directory</Link></Button></div>
+      <RetailerEmailAlerts onOpen={setEmailSelection} />
+      {onboardingAttention.isLoading && <p className="text-sm text-muted-foreground mb-4">Checking onboarding submissions…</p>}
+      {onboardingAttention.error && <div role="alert" className="mb-4 text-sm text-destructive">Could not check onboarding review alerts. <Button size="sm" variant="outline" onClick={() => onboardingAttention.refetch()}>Retry</Button></div>}
+      {emailSelection && <RetailerEmailDialog key={`${emailSelection.storeId}:${emailSelection.threadId || ''}`} selection={emailSelection} onClose={() => setEmailSelection(null)} onRead={emailAttention.markRead} />}
+      <StripeOnboardingHub />
+
       {/* Placement Revenue Summary */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {TIERS.map(t => {
@@ -173,39 +207,23 @@ export default function AdminStores() {
                   }}
                 />
               </div>
-              <div className="mt-3 pt-3 border-t flex justify-between gap-2">
+              <StoreTemplateLink store={store} />
+              <div className="mt-3 pt-3 border-t flex flex-wrap justify-end gap-2">
+                <RetailerEmailAttentionButton store={store} pending={emailAttention.pending} onOpen={setEmailSelection} />
+                <RetailerChatButton storeId={store.id} storeName={store.name} admin />
+                <RetailerOnboardingAttentionButton store={store} attention={onboardingAttention} />
                 <Button
                   size="sm"
                   variant="outline"
                   className="gap-1.5 text-xs h-7"
-                  onClick={() => setPosStore(store)}
+                  disabled={downloadingId === store.id}
+                  onClick={() => handleDownloadContract(store)}
                 >
-                  <CreditCard className="w-3 h-3" />
-                  POS Credentials
+                  <FileDown className="w-3 h-3" />
+                  {downloadingId === store.id ? 'Generating…' : 'Download Contract'}
                 </Button>
-                <DownloadContractButton
-                  storeId={store.id}
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs h-7 px-3"
-                />
+                <EmployerBackgroundCheckPanel store={store} />
               </div>
-              {store.id === BEVERAGE_KING_STORE_ID ? (
-                <Link to="/admin/beverage-king-clover" className="block mt-2">
-                  <Button size="sm" className="w-full gap-1.5 text-xs h-8">
-                    Easy Clover Setup <ArrowRight className="w-3 h-3" />
-                  </Button>
-                </Link>
-              ) : store.pos_system === 'clover' && credByStore[store.id]?.app_id ? (
-                <a
-                  href={`https://www.clover.com/oauth/v2/authorize?client_id=${encodeURIComponent(credByStore[store.id].app_id)}&response_type=code&redirect_uri=${encodeURIComponent(window.location.origin + window.location.pathname)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-700 font-medium hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3" /> Authorize Merchant
-                </a>
-              ) : null}
               <div className="mt-2">
                 <p className="text-xs text-muted-foreground mb-1.5 font-medium">Placement Tier</p>
                 <Select
@@ -226,16 +244,6 @@ export default function AdminStores() {
           ))
         )}
       </div>
-
-      {/* POS Credentials — admin entry (backend-only storage, never exposed in frontend/logs) */}
-      <Dialog open={!!posStore} onOpenChange={(v) => !v && setPosStore(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>POS Credentials — {posStore?.name}</DialogTitle>
-          </DialogHeader>
-          {posStore && <PosCredentialsForm store={posStore} />}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -35,7 +35,16 @@ const getAppParamValue = (paramName, { defaultValue = undefined, removeFromUrl =
 }
 
 const getAppParams = () => {
-	if (getAppParamValue("clear_access_token") === 'true') {
+	// Consume an explicit session reset once; never persist it across launches.
+	const urlParams = new URLSearchParams(window.location.search);
+	const clearAccessToken = urlParams.get("clear_access_token") === 'true';
+	storage.removeItem('base44_clear_access_token');
+	if (urlParams.has("clear_access_token")) {
+		urlParams.delete("clear_access_token");
+		const query = urlParams.toString();
+		window.history.replaceState({}, document.title, `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+	}
+	if (clearAccessToken) {
 		storage.removeItem('base44_access_token');
 		storage.removeItem('token');
 	}

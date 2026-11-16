@@ -108,8 +108,8 @@ export default function BackendChecklist() {
             }
           </div>
           <div className="text-left">
-            <p className="font-semibold text-sm">Backend Setup Checklist</p>
-            <p className="text-xs text-muted-foreground">{doneItems}/{totalItems} configured · {STEPS.length} categories</p>
+            <p className="font-semibold text-sm">Backend Code Inventory</p>
+            <p className="text-xs text-muted-foreground">{doneItems}/{totalItems} components present in code · live readiness is checked separately</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -117,7 +117,7 @@ export default function BackendChecklist() {
             <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(doneItems / totalItems) * 100}%` }} />
             </div>
-            <span className="text-xs text-muted-foreground">{Math.round((doneItems / totalItems) * 100)}%</span>
+            <span className="text-xs text-muted-foreground">code</span>
           </div>
           {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </div>

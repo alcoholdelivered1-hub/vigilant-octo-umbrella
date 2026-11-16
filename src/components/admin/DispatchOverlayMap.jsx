@@ -100,7 +100,7 @@ export default function DispatchOverlayMap({ stores = [], zones = [], orders = [
       <MapContainer center={JEFFERSON_CENTER} zoom={10} style={{ height: '100%', width: '100%' }} zoomControl={true}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
 
         {fitPoints.length > 0 && <FitBounds points={fitPoints} />}

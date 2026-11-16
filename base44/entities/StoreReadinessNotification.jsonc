@@ -1,0 +1,54 @@
+{
+  "name": "StoreReadinessNotification",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "check_version": {
+      "type": "string",
+      "enum": [
+        "verified_tax_driver_v1"
+      ]
+    },
+    "channel_id": {
+      "type": "string"
+    },
+    "slack_message_ts": {
+      "type": "string"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "store_id",
+    "check_version",
+    "channel_id",
+    "slack_message_ts",
+    "sent_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "name": "StoreSetupDocument",
+  "type": "object",
+  "properties": {
+    "store_id": {
+      "type": "string"
+    },
+    "store_name": {
+      "type": "string"
+    },
+    "contact_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "retail_license",
+        "signed_agreement",
+        "inventory_export",
+        "pos_details"
+      ]
+    },
+    "filename": {
+      "type": "string"
+    },
+    "file_uri": {
+      "type": "string"
+    },
+    "submitted_by": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_review",
+        "approved",
+        "needs_correction"
+      ],
+      "default": "pending_review"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string"
+    },
+    "review_note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "store_id",
+    "store_name",
+    "contact_emails",
+    "kind",
+    "filename",
+    "file_uri",
+    "submitted_by",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

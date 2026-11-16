@@ -1,0 +1,16 @@
+{
+  "name": "sendOrderConfirmationEmail",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "Sends a Gmail notification to the store manager whenever a new order is placed",
+      "entity_name": "Order",
+      "event_types": [
+        "create"
+      ],
+      "is_active": false,
+      "name": "Order Confirmation Email to Store Manager"
+    }
+  ]
+}

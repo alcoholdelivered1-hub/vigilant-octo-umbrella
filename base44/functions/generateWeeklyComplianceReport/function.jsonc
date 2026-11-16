@@ -1,0 +1,20 @@
+{
+  "name": "generateWeeklyComplianceReport",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "scheduled",
+      "description": "Sends a weekly compliance summary email every Friday morning covering order flags, missing ID verifications, uncertified drivers, and refused deliveries for ABC review.",
+      "ends_type": "never",
+      "is_active": false,
+      "name": "Weekly ABC Compliance Report",
+      "repeat_on_days": [
+        5
+      ],
+      "repeat_unit": "weeks",
+      "schedule_mode": "recurring",
+      "schedule_type": "simple",
+      "start_time": "13:00"
+    }
+  ]
+}

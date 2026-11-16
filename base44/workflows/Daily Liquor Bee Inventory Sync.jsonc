@@ -1,0 +1,47 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "liquor_bee_inventory_sync",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "sync_inventory": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncBeverageKingLiquorBee",
+            "args": {
+              "action": "sync"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Sync Beverage King inventory",
+            "description": "Pulls products, prices, and stock from Liquor Bee"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Daily Liquor Bee Inventory Sync \u2014 Beverage King",
+  "description": "Automatically syncs Beverage King's product inventory from Liquor Bee every day at 6 AM, keeping prices, stock levels, and availability up to date for live orders."
+}

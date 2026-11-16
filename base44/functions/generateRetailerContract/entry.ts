@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import { jsPDF } from 'npm:jspdf@4.0.0';
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -114,8 +114,8 @@ Deno.serve(async (req) => {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(50, 50, 50);
       for (const line of lines) {
-        checkPage(20);
         const wrapped = doc.splitTextToSize(line, contentW);
+        checkPage(wrapped.length * 11 + 3);
         doc.text(wrapped, margin, y);
         y += wrapped.length * 11 + 3;
       }
@@ -134,6 +134,20 @@ Deno.serve(async (req) => {
       '• No alcohol shall be delivered to any person under the age of 21, or to any person who appears intoxicated.',
     ]);
 
+    section('2A. LICENSE VERIFICATION, RENEWALS AND ALERTS', [
+      'The Retailer shall provide its actual Arkansas ABC retail license number, current license documentation, verification status, and expiration date, and keep these details current in the retailer onboarding tracker.',
+      'A PENDING or PENDING-VERIFY entry means verification is incomplete; it is not proof of an active license or authorization to accept orders. The owner or an authorized representative shall coordinate verification with Alcohol Delivered before activation.',
+      'The Retailer shall provide renewed documentation and the new expiration date when its license is renewed and promptly report expiration, suspension, revocation, or other changes in licensing status.',
+      'The Platform checks recorded license details when they change and daily at 8 AM Central. Pending-verification issues appear on the Admin Dashboard; expiration warnings start 30 days before the recorded date, with another reminder at 7 days and after expiration.',
+      'Administrative license alerts are directed to alcohol.delivered1@gmail.com. These alerts are operational reminders, not ABC verification, legal advice, or a substitute for the Retailer\'s own renewal responsibilities; expiration warnings require an accurate recorded expiration date.',
+      'Retailer-specific licenses remain separate from the Platform\'s third-party delivery permit. Completion of this Agreement alone does not certify license compliance or launch readiness.',
+      'ABC License Expiration Date: ' + (store.license_expiration_date || '________________________'),
+      'Recorded License Status: ' + (store.license_status || (/pending/i.test(store.license_number || '') ? 'PENDING' : 'Not verified')),
+      'License Verification Source: ________________________',
+      'Renewal / Compliance Contact: ________________________',
+      'Additional Authorized Contact Email: ________________________',
+    ]);
+
     section('3. ROLES AND RESPONSIBILITIES', [
       'Retailer Responsibilities:',
       '• Receive and confirm customer orders placed through the Platform.',
@@ -148,6 +162,19 @@ Deno.serve(async (req) => {
       '• Ensure drivers verify customer ID again at the point of delivery.',
       '• Maintain delivery logs and ID verification records for ABC inspection upon request.',
       '• Carry commercial auto and general liability insurance for all delivery operations.',
+    ]);
+
+    section('3A. POS AUTHORIZATION AND INVENTORY SETUP', [
+      'The owner or an authorized representative shall confirm the Retailer\'s POS provider and authorize access for catalog, pricing, and inventory synchronization. A provider such as mPower, City Hive, or Clover is not considered confirmed or connected until the Retailer confirms it and access is verified.',
+      'The Retailer\'s confirmed POS is the authoritative source for product identifiers, prices, and stock availability. Platform listings shall use the Retailer\'s actual catalog, not invented or unverified products.',
+      'The Retailer shall provide authorized API access or an agreed inventory feed, such as a refreshed CSV feed or Google Sheet, and confirm the refresh frequency with Alcohol Delivered. A fallback feed must reflect the Retailer\'s current POS data.',
+      'Passwords, access tokens, bank details, and identity documents shall not be entered in this Agreement or emailed; use the secure setup forms and approved authorization process.',
+      'The parties shall verify catalog accuracy, prices, stock availability, and a sandbox order and delivery-handoff test before opening customer ordering. Signing this Agreement does not by itself confirm a working POS connection, inventory sync, or activation.',
+      'Confirmed POS Provider: ________________________',
+      'Owner / Authorized POS Contact: ________________________',
+      'Inventory Access Method (API / CSV / Sheet): ________________________',
+      'Agreed Inventory Refresh Frequency: ________________________',
+      'For license verification, POS setup, and onboarding assistance, contact John Bess: 870-718-1521 or alcohol.delivered1@gmail.com.',
     ]);
 
     section('4. ORDER PROCESS', [
@@ -272,4 +299,4 @@ Deno.serve(async (req) => {
     console.error('generateRetailerContract error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}

@@ -1,0 +1,16 @@
+{
+  "name": "syncInventoryOnOrderComplete",
+  "entry": "entry.ts",
+  "automations": [
+    {
+      "type": "entity",
+      "description": "When an order is marked delivered, deduct sold quantities from product stock levels.",
+      "entity_name": "Order",
+      "event_types": [
+        "update"
+      ],
+      "is_active": false,
+      "name": "Sync Inventory on Order Delivered"
+    }
+  ]
+}

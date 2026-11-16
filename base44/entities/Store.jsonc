@@ -10,6 +10,22 @@
       "type": "string",
       "description": "Arkansas ABC license number"
     },
+    "license_status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "pending",
+        "active",
+        "expired",
+        "suspended"
+      ],
+      "description": "Verified retail license status; independent of payment and onboarding status"
+    },
+    "license_expiration_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Verified Arkansas ABC retail license expiration date"
+    },
     "address": {
       "type": "string",
       "description": "Store street address"
@@ -35,6 +51,14 @@
     "email": {
       "type": "string",
       "description": "Store contact email for order notifications"
+    },
+    "contact_emails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "email"
+      },
+      "description": "Additional retailer contacts authorized to access the onboarding tracker"
     },
     "notification_phone": {
       "type": "string",
@@ -79,6 +103,11 @@
       "type": "boolean",
       "default": true
     },
+    "is_browsable": {
+      "type": "boolean",
+      "default": false,
+      "description": "Visible in browse mode before go-live; ordering remains disabled."
+    },
     "image_url": {
       "type": "string"
     },
@@ -90,12 +119,11 @@
         "premium"
       ],
       "default": "standard",
-      "description": "Paid placement tier: standard (free), featured ($50/mo), premium ($150/mo)"
+      "description": "Optional paid placement: standard free, featured $50/mo, premium $150/mo"
     },
     "placement_expires": {
       "type": "string",
-      "format": "date",
-      "description": "Date when paid placement expires"
+      "format": "date"
     },
     "compliance_status": {
       "type": "string",
@@ -105,66 +133,101 @@
         "expired",
         "suspended"
       ],
-      "default": "compliant",
-      "description": "Current compliance standing of the store"
+      "default": "compliant"
     },
     "compliance_notes": {
-      "type": "string",
-      "description": "Admin notes on why the store was flagged, expired, or suspended"
+      "type": "string"
     },
     "onboarding_status": {
       "type": "string",
       "enum": [
+        "pending",
         "invited",
         "contract_sent",
         "contract_signed",
         "inventory_added",
         "live"
       ],
-      "default": "invited",
-      "description": "Tracks where the retailer is in the onboarding pipeline"
+      "default": "invited"
+    },
+    "compliance_template": {
+      "type": "string",
+      "enum": [
+        "retailer_agreement"
+      ]
     },
     "onboarding_notes": {
-      "type": "string",
-      "description": "Admin notes on onboarding progress"
+      "type": "string"
     },
     "contract_sent_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When the onboarding/contract email was first sent"
+      "format": "date-time"
     },
     "reminder_sent_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When the last contract follow-up reminder email was sent"
-    },
-    "pos_system": {
-      "type": "string",
-      "enum": [
-        "clover",
-        "square",
-        "toast",
-        "ncr",
-        "lightspeed",
-        "shopkeep",
-        "other",
-        "none"
-      ],
-      "description": "POS system used by the retailer (from contract data)"
-    },
-    "stripe_connect_account_id": {
-      "type": "string",
-      "description": "Stripe Connect Express account ID for retailer payouts"
-    },
-    "stripe_connect_onboarded": {
-      "type": "boolean",
-      "default": false,
-      "description": "True once the retailer has completed Stripe Connect onboarding (KYC + bank account)"
+      "format": "date-time"
     },
     "description": {
       "type": "string",
-      "maxLength": 1000,
-      "description": "Optional description or notes about this store"
+      "maxLength": 1000
+    },
+    "stripe_connect_account_id": {
+      "type": "string"
+    },
+    "stripe_connection_status": {
+      "type": "string",
+      "enum": [
+        "disconnected",
+        "pending",
+        "connected"
+      ],
+      "default": "disconnected"
+    },
+    "stripe_connected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "preferred_payment_provider": {
+      "type": "string",
+      "enum": [
+        "stripe",
+        "clover"
+      ],
+      "default": "stripe",
+      "description": "Retailer payment preference; not proof that a payment processor is enabled."
+    },
+    "clover_ecommerce_approved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Administrator-verified Clover card-not-present Ecommerce approval for alcohol transactions."
+    },
+    "clover_commission_agreement_approved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Administrator-verified agreement covering 25% merchandise commission and settlement of delivery fees and tips."
+    },
+    "clover_webhook_test_passed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Administrator-verified signed Clover webhook, payment matching and order notification test."
+    },
+    "clover_checkout_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Admin opt-in gate; never by itself proves Clover checkout readiness or permits customer charging."
+    },
+    "liquorbee_merchant_id": {
+      "type": "string",
+      "description": "Merchant ID LiquorBee assigns to this store; required for LiquorBee Partner API calls on its behalf."
+    },
+    "sales_tax_rate": {
+      "type": "number",
+      "description": "Configurable checkout sales-tax rate pending verified destination/category tax engine."
+    },
+    "is_test_store": {
+      "type": "boolean",
+      "default": false,
+      "description": "End-to-end test retailer. Checkout runs in Stripe test mode on the platform account: no real money, no retailer Connect account, and paid orders are marked as test orders."
     }
   },
   "required": [
@@ -180,18 +243,22 @@
         "role": "admin"
       }
     },
-    "read": null,
-    "update": {
+    "read": {
       "$or": [
+        {
+          "data.email": "{{user.email}}"
+        },
         {
           "user_condition": {
             "role": "admin"
           }
-        },
-        {
-          "data.email": "{{user.email}}"
         }
       ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
       "user_condition": {

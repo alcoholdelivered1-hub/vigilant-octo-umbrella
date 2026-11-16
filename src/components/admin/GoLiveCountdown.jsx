@@ -28,8 +28,8 @@ export default function GoLiveCountdown() {
       <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl p-6 text-white flex items-center gap-4">
         <Rocket className="w-8 h-8 shrink-0" />
         <div>
-          <p className="text-xl font-bold font-display">We're Live in Pine Bluff!</p>
-          <p className="text-sm text-white/80">Soft opening — now serving Pine Bluff & Jefferson County, AR.</p>
+          <p className="text-xl font-bold font-display">Final Go-Live Checks</p>
+          <p className="text-sm text-white/80">Ordering remains paused until the production payment, Clover, tax, and compliance gates pass.</p>
         </div>
       </div>
     );

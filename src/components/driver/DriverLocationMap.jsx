@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, Marker, Popup, Circle } from 'react-leaflet';
-import CachedTileLayer from '@/components/driver/CachedTileLayer';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Loader2, AlertTriangle } from 'lucide-react';
@@ -63,7 +62,10 @@ export default function DriverLocationMap() {
 
       <div className="rounded-xl overflow-hidden border bg-muted h-52">
         <MapContainer center={center} zoom={13} style={{ width: '100%', height: '100%' }}>
-          <CachedTileLayer />
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; OpenStreetMap contributors'
+          />
           {location && (
             <>
               <Marker position={[location.lat, location.lng]}>

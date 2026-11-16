@@ -1,0 +1,96 @@
+{
+  "name": "DriverCompliance",
+  "type": "object",
+  "properties": {
+    "driver_id": {
+      "type": "string"
+    },
+    "driver_email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "revoked"
+      ]
+    },
+    "training_completed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "training_expires_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "training_provider": {
+      "type": "string"
+    },
+    "abc_approval_reference": {
+      "type": "string"
+    },
+    "certificate_reference": {
+      "type": "string"
+    },
+    "awareness_form_reference": {
+      "type": "string"
+    },
+    "license_expiration_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "reviewed_license_number": {
+      "type": "string"
+    },
+    "reviewed_date_of_birth": {
+      "type": "string",
+      "format": "date"
+    },
+    "reviewed_background_check_id": {
+      "type": "string"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "driver_id",
+    "driver_email",
+    "status",
+    "reviewed_by",
+    "reviewed_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "data.driver_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

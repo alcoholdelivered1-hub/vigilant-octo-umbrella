@@ -103,7 +103,7 @@ export default function TrainingModule({ onComplete }) {
   };
 
   const score = QUIZ.filter((q, i) => answers[i] === q.answer).length;
-  const passed = score === QUIZ.length;
+  const passed = score >= 4;
 
   if (phase === 'results') {
     return (
@@ -114,7 +114,7 @@ export default function TrainingModule({ onComplete }) {
         <div>
           <h3 className="font-display text-xl font-bold">{passed ? 'Training Passed!' : 'Training Not Passed'}</h3>
           <p className="text-muted-foreground mt-1 text-sm">
-            You scored <strong>{score}/{QUIZ.length}</strong>. {passed ? 'You may proceed with your application.' : 'A 100% pass rate is required. Please review the training materials and retake the quiz.'}
+            You scored <strong>{score}/{QUIZ.length}</strong>. {passed ? 'You may proceed with your application.' : 'A score of 4/5 is required. Please retake the training.'}
           </p>
         </div>
         {!passed && (

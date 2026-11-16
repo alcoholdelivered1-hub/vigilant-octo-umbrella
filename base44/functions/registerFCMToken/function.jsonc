@@ -1,0 +1,4 @@
+{
+  "name": "registerFCMToken",
+  "entry": "entry.ts"
+}

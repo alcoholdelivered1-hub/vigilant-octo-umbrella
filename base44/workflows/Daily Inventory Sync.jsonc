@@ -1,0 +1,45 @@
+{
+  "name": "Daily Inventory Sync",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_inventory_sync",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "sync_all_inventory": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncAllStoreInventory",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Sync all store inventory",
+            "description": "Pulls products, prices, and stock from all connected POS providers (CityHive, Clover, Liquor Bee)"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Automatically syncs product inventory from all connected POS providers every day at 6 AM, keeping prices, stock levels, and availability up to date for live orders.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 * * *",
+      "one_time_date": null,
+      "timezone": "America/Chicago",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

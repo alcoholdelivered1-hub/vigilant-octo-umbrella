@@ -1,203 +1,229 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import Stripe from 'npm:stripe@14.21.0';
-import { verifyDeliveryCompliance } from '../../shared/deliveryCompliance.ts';
+import { secrets } from 'base44:runtime';
+import { resolveAppOrigin } from '../../shared/appOrigin.ts';
+import { getRetailerStripeAccount, retailerPaymentsReady } from '../../shared/retailerStripe.ts';
+import { geocodeDeliveryAddress, verifyABCDeliveryArea } from '../../shared/abcDeliveryArea.ts';
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
-
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
+    if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
+
     const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const {
-      order_number, items, delivery_fee, mileage_surcharge, distance_miles,
-      service_fee, tax, tip, tax_rate, alcohol_excise_tax,
-      store_id, store_name, total,
-      customer_name, customer_email, customer_phone, delivery_address, notes,
-      date_of_birth, is_in_legal_zone,
+      order_number, items, tip,
+      store_id, customer_name, customer_phone, delivery_address,
+      notes, date_of_birth, checkout_verification_id,
     } = await req.json();
 
-    if (!customer_email) {
-      return Response.json({ error: 'Customer email is required' }, { status: 400 });
+    if (!order_number || !store_id || !Array.isArray(items) || items.length === 0 || items.length > 40 || !delivery_address || !customer_name || !customer_phone) {
+      return Response.json({ error: 'Invalid checkout request' }, { status: 400 });
     }
 
-    // Re-fetch live prices AND categories from the database so the customer is
-    // always charged the retailer's current price — never trust client-sent prices.
-    let verifiedItems = items;
-    let verifiedSubtotal = 0;
-    let verifiedAlcoholExciseTax = 0;
-    try {
-      const productIds = items.map(i => i.product_id).filter(Boolean);
-      if (productIds.length > 0) {
-        const liveProducts = await base44.asServiceRole.entities.Product.filter(
-          { id: { $in: productIds } }, 'name', 200
-        );
-        const productMap = {};
-        liveProducts.forEach(p => { productMap[p.id] = { price: p.price, category: p.category, in_stock: p.in_stock, stock_quantity: p.stock_quantity }; });
+    const store = await base44.asServiceRole.entities.Store.get(store_id);
+    // Test retailers run the real flow in Stripe test mode: no retailer Connect account is required.
+    const isTestStore = store?.is_test_store === true;
+    if (!store?.is_active || store.onboarding_status !== 'live' || store.compliance_status !== 'compliant' || (!isTestStore && store.stripe_connection_status !== 'connected')) {
+      return Response.json({ error: 'This retailer is not ready to accept payments yet.' }, { status: 409 });
+    }
+    if (store.id === '6a32d14d09b760f592dbf19e') {
+      const approvals = await base44.asServiceRole.entities.StoreLaunchApproval.filter({ store_id: store.id, check_version: 'beverage_king_v1' }, '-approved_at', 1);
+      if (!approvals.length) return Response.json({ error: 'Beverage King must pass every go-live check before accepting payments.' }, { status: 409 });
+    }
+    let retailerAccount = null;
+    if (!isTestStore) {
+      retailerAccount = await getRetailerStripeAccount(store);
+      if (!retailerPaymentsReady(retailerAccount)) return Response.json({ error: 'This retailer must finish Stripe verification and bank setup before accepting orders.' }, { status: 409 });
+    }
 
-        // Verify stock availability — block checkout if any item is out of stock or insufficient quantity
-        const stockErrors = [];
-        items.forEach(item => {
-          const live = productMap[item.product_id];
-          if (!live) {
-            stockErrors.push(`${item.product_name}: no longer available`);
-          } else if (live.in_stock === false) {
-            stockErrors.push(`${item.product_name}: out of stock`);
-          } else if (live.stock_quantity != null && live.stock_quantity < item.quantity) {
-            stockErrors.push(`${item.product_name}: only ${live.stock_quantity} left (requested ${item.quantity})`);
-          }
-        });
-        if (stockErrors.length > 0) {
-          return Response.json({ error: stockErrors.join('; ') }, { status: 409 });
-        }
-        verifiedItems = items.map(item => {
-          const live = productMap[item.product_id];
-          if (live) {
-            return { ...item, price: live.price, category: live.category || item.category, subtotal: live.price * item.quantity };
-          }
-          return item;
-        });
+    // Validate the server-recorded verification by ID and owner, not a browser-supplied image URL.
+    if (!checkout_verification_id) {
+      return Response.json({ error: 'Verified ID is required before payment.' }, { status: 403 });
+    }
+    const verification = await base44.asServiceRole.entities.IDVerification.get(checkout_verification_id);
+    if (!verification || verification.verification_type !== 'checkout' || verification.is_verified !== true ||
+        verification.customer_email?.toLowerCase() !== user.email?.toLowerCase() ||
+        verification.date_of_birth !== date_of_birth) {
+      return Response.json({ error: 'ID verification could not be validated. Please verify your ID again.' }, { status: 403 });
+    }
+
+    // Rebuild cart pricing from authoritative Product records; never trust browser-supplied names/prices/subtotals.
+    const validatedItems = [];
+    const productIds = new Set();
+    for (const requested of items) {
+      if (productIds.has(requested.product_id)) return Response.json({ error: 'Combine duplicate cart items before checkout.' }, { status: 400 });
+      productIds.add(requested.product_id);
+      const quantity = Math.floor(Number(requested.quantity));
+      if (!requested.product_id || !Number.isFinite(quantity) || quantity < 1 || quantity > 25) {
+        return Response.json({ error: 'Invalid cart quantity.' }, { status: 400 });
       }
-      verifiedSubtotal = verifiedItems.reduce((sum, i) => sum + (i.subtotal || i.price * i.quantity), 0);
-      // Recalculate alcohol excise tax server-side from verified categories
-      const EXCISE_RATES = { beer: 0.01, wine: 0.03, spirits: 0.03 };
-      verifiedAlcoholExciseTax = verifiedItems.reduce((sum, item) => {
-        const rate = EXCISE_RATES[item.category] || 0;
-        return sum + (item.subtotal || item.price * item.quantity) * rate;
-      }, 0);
-    } catch (e) {
-      console.error('Price verification error:', e);
-      // Fall back to client prices if DB lookup fails
-      verifiedSubtotal = items.reduce((sum, i) => sum + (i.subtotal || i.price * i.quantity), 0);
-      verifiedAlcoholExciseTax = alcohol_excise_tax || 0;
-    }
-
-    // --- Server-side delivery compliance verification ---
-    // Geocode the delivery address, match against approved zones, verify wet/dry
-    // status, legal hours, and retailer compliance — never trust client-submitted
-    // zone/fee/tax values.
-    const stores = await base44.asServiceRole.entities.Store.filter({ id: store_id }, 'name', 1);
-    const storeRecord = stores[0];
-    if (!storeRecord) {
-      return Response.json({ error: 'Selected store not found' }, { status: 400 });
-    }
-    if (storeRecord.compliance_status !== 'compliant' || !storeRecord.is_active) {
-      return Response.json({ error: 'Selected retailer is not licensed or approved for delivery' }, { status: 403 });
-    }
-
-    const zones = await base44.asServiceRole.entities.DeliveryZone.filter({ is_active: true }, 'name', 100);
-    const compliance = await verifyDeliveryCompliance({
-      deliveryAddress: delivery_address,
-      store: storeRecord,
-      zones,
-    });
-    if (!compliance.approved) {
-      return Response.json({ error: compliance.rejectionReason || 'Delivery is not available at this address' }, { status: 403 });
-    }
-
-    // Recalculate fees from the verified subtotal using server-derived zone values.
-    // Round each component to cents before summing so the Stripe line-item total
-    // and the stored grand_total reconcile exactly (no penny-off drift).
-    const roundCents = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
-    const verifiedSubtotalR = roundCents(verifiedSubtotal);
-    const verifiedDeliveryFee = roundCents(compliance.deliveryFee);
-    const verifiedMileageSurcharge = roundCents(compliance.mileageSurcharge);
-    const verifiedTaxRate = compliance.taxRate;
-    const verifiedDistanceMiles = compliance.distanceMiles;
-    const verifiedServiceFee = roundCents(verifiedSubtotalR * 0.25);
-    const verifiedTax = roundCents(verifiedSubtotalR * verifiedTaxRate);
-    const verifiedAlcoholExciseTaxR = roundCents(verifiedAlcoholExciseTax);
-    const verifiedTip = roundCents(tip || 0);
-    const verifiedTotal = roundCents(
-      verifiedSubtotalR + verifiedDeliveryFee + verifiedMileageSurcharge +
-      verifiedServiceFee + verifiedTax + verifiedAlcoholExciseTaxR + verifiedTip
-    );
-
-    // --- Referral credit: verify the user's actual balance and create a Stripe coupon ---
-    let referralCreditCents = 0;
-    let couponId = null;
-    try {
-      const users = await base44.asServiceRole.entities.User.filter({ email: customer_email });
-      if (users.length > 0 && users[0].referral_credits > 0) {
-        // Cap credit at the order total — can't discount below $0
-        referralCreditCents = Math.min(users[0].referral_credits, Math.round(verifiedTotal * 100));
-        if (referralCreditCents >= 50) { // Stripe minimum coupon amount is $0.50
-          const coupon = await stripe.coupons.create({
-            amount_off: referralCreditCents,
-            currency: 'usd',
-            duration: 'once',
-            name: 'Referral Credit',
-          });
-          couponId = coupon.id;
-        }
+      const product = await base44.asServiceRole.entities.Product.get(requested.product_id);
+      if (!product || product.store_id !== store_id) {
+        return Response.json({ error: 'A cart item does not belong to this retailer.' }, { status: 400 });
       }
-    } catch (e) {
-      console.error('Failed to check referral credits:', e.message);
+      if (!['clover', 'manual', 'csv'].includes(product.inventory_source) || !Number.isFinite(Number(product.price)) || Number(product.price) <= 0 || product.in_stock === false || (product.stock_quantity != null && product.stock_quantity < quantity)) {
+        return Response.json({ error: `${product.name} is currently unavailable in the requested quantity.` }, { status: 409 });
+      }
+      validatedItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        quantity,
+        price: Number(product.price),
+        subtotal: Number((Number(product.price) * quantity).toFixed(2)),
+      });
     }
 
-    // Build line items from verified cart items
-    const lineItems = verifiedItems.map(item => ({
+    const subtotal = Number(validatedItems.reduce((sum, item) => sum + item.subtotal, 0).toFixed(2));
+
+    // Radius zones control service availability, never establish legal territory.
+    const coordinates = await geocodeDeliveryAddress(delivery_address);
+    const deliveryLat = coordinates.latitude;
+    const deliveryLon = coordinates.longitude;
+    await verifyABCDeliveryArea(store, deliveryLat, deliveryLon);
+    const zones = await base44.asServiceRole.entities.DeliveryZone.filter({ is_active: true });
+    const haversine = (lat1, lon1, lat2, lon2) => {
+      const R = 3959;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+    const matchedZones = zones
+      .filter((z) => z.center_latitude && z.center_longitude && z.radius_miles)
+      .map((z) => ({ zone: z, distance: haversine(deliveryLat, deliveryLon, z.center_latitude, z.center_longitude) }))
+      .filter(({ zone, distance }) => distance <= zone.radius_miles)
+      .sort((a, b) => a.zone.radius_miles - b.zone.radius_miles);
+    if (matchedZones.some(({ zone }) => zone.is_wet === false)) {
+      return Response.json({ error: 'Alcohol delivery is not available at this address.' }, { status: 403 });
+    }
+    const wetZones = matchedZones.filter(({ zone }) => zone.is_wet === true);
+    if (wetZones.length === 0) {
+      return Response.json({ error: 'This address is outside our current legal delivery zones.' }, { status: 403 });
+    }
+    const deliveryZone = wetZones[0].zone;
+    if (deliveryZone.legal_hours_start && deliveryZone.legal_hours_end) {
+      const timeParts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+      const hour = Number(timeParts.find((p) => p.type === 'hour')?.value || 0);
+      const minute = Number(timeParts.find((p) => p.type === 'minute')?.value || 0);
+      const nowMinutes = hour * 60 + minute;
+      const [startH, startM] = deliveryZone.legal_hours_start.split(':').map(Number);
+      const [endH, endM] = deliveryZone.legal_hours_end.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      const withinHours = startMinutes <= endMinutes
+        ? nowMinutes >= startMinutes && nowMinutes <= endMinutes
+        : nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+      if (!withinHours) return Response.json({ error: `Orders are not available in ${deliveryZone.name} at this time.` }, { status: 403 });
+    }
+    const minimum = Number(deliveryZone.min_order_amount ?? 20);
+    if (subtotal < minimum) return Response.json({ error: `Minimum order is $${minimum.toFixed(2)}.` }, { status: 400 });
+
+    const distanceMiles = (store.latitude && store.longitude) ? haversine(store.latitude, store.longitude, deliveryLat, deliveryLon) : 0;
+    const deliveryFee = Number(deliveryZone.delivery_fee ?? 3);
+    const mileageSurcharge = Number(Math.max(0, distanceMiles - 7).toFixed(2));
+    // The customer pays a 25% service fee on the merchandise subtotal.
+    const serviceFee = Number((subtotal * 0.25).toFixed(2));
+    const appSupportFee = Number((subtotal * 0.04).toFixed(2));
+    const taxRate = Number(store.sales_tax_rate ?? 0.085);
+    const tax = Number((subtotal * taxRate).toFixed(2));
+    const safeTip = Number(Math.min(100, Math.max(0, Number(tip) || 0)).toFixed(2));
+    const grandTotal = Number((subtotal + deliveryFee + mileageSurcharge + serviceFee + appSupportFee + tax + safeTip).toFixed(2));
+
+    // Direct charge: retailer receives merchandise + tax, less Stripe processing fees.
+    // The application fee collects customer service/support/delivery fees and driver tip.
+    const applicationFeeCents = isTestStore ? 0 : Math.round((serviceFee + appSupportFee + deliveryFee + mileageSurcharge + safeTip) * 100);
+    const stripe = new Stripe(secrets.get(isTestStore ? 'STRIPE_TEST_SECRET_KEY' : 'STRIPE_SECRET_KEY'));
+    const lineItems = validatedItems.map((item) => ({
       price_data: {
         currency: 'usd',
-        product_data: {
-          name: item.product_name,
-          description: `From ${store_name}`,
-        },
+        product_data: { name: item.product_name, description: `From ${store.name}` },
         unit_amount: Math.round(item.price * 100),
       },
       quantity: item.quantity,
     }));
 
-    if (verifiedDeliveryFee > 0) lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'Delivery Fee' }, unit_amount: Math.round(verifiedDeliveryFee * 100) }, quantity: 1 });
-    if (verifiedMileageSurcharge > 0) lineItems.push({ price_data: { currency: 'usd', product_data: { name: `Mileage Surcharge (${verifiedDistanceMiles?.toFixed(1)} mi)` }, unit_amount: Math.round(verifiedMileageSurcharge * 100) }, quantity: 1 });
-    if (verifiedServiceFee > 0) lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'Service Fee' }, unit_amount: Math.round(verifiedServiceFee * 100) }, quantity: 1 });
-    if (verifiedTax > 0) lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'Sales Tax' }, unit_amount: Math.round(verifiedTax * 100) }, quantity: 1 });
-    if (verifiedAlcoholExciseTaxR > 0) lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'AR Alcohol Excise Tax' }, unit_amount: Math.round(verifiedAlcoholExciseTaxR * 100) }, quantity: 1 });
-    if (verifiedTip > 0) lineItems.push({ price_data: { currency: 'usd', product_data: { name: 'Driver Tip' }, unit_amount: Math.round(verifiedTip * 100) }, quantity: 1 });
+    const addFee = (name, amount) => {
+      if (amount > 0) {
+        lineItems.push({
+          price_data: { currency: 'usd', product_data: { name }, unit_amount: Math.round(amount * 100) },
+          quantity: 1,
+        });
+      }
+    };
+    addFee('Delivery Fee', deliveryFee);
+    addFee('Mileage Fee', mileageSurcharge);
+    addFee('Service Fee', serviceFee);
+    addFee('App Support Fee', appSupportFee);
+    addFee('Tax', tax);
+    addFee('Driver Tip', safeTip);
 
-    const origin = req.headers.get('origin') || 'https://app.base44.com';
+    const origin = resolveAppOrigin(req);
+    const appId = secrets.get('BASE44_APP_ID');
+    const metadata = {
+      base44_app_id: appId,
+      order_number,
+      customer_email: user.email,
+      customer_name,
+      customer_phone,
+      delivery_address,
+      notes: notes || '',
+      store_id,
+      store_name: store.name,
+      subtotal: String(subtotal),
+      delivery_fee: String(deliveryFee),
+      mileage_surcharge: String(mileageSurcharge),
+      distance_miles: String(Number(distanceMiles.toFixed(2))),
+      delivery_latitude: String(deliveryLat),
+      delivery_longitude: String(deliveryLon),
+      service_fee: String(serviceFee),
+      fee_model: 'customer_service_fee_25_v1',
+      app_support_fee: String(appSupportFee),
+      tax: String(tax),
+      sales_tax_rate: String(taxRate),
+      tip: String(safeTip),
+      grand_total: String(grandTotal),
+      stripe_connected_account_id: retailerAccount?.id || '',
+      application_fee_cents: String(applicationFeeCents),
+      is_in_legal_zone: 'true',
+      checkout_verification_id,
+      test_store: isTestStore ? 'true' : 'false',
+    };
+    // Stripe metadata values are limited to 500 characters each.
+    const cartJson = JSON.stringify(validatedItems);
+    const cartParts = cartJson.match(/[\s\S]{1,500}/g) || [];
+    if (cartParts.length > 20) return Response.json({ error: 'Please split this cart into smaller orders.' }, { status: 400 });
+    metadata.items_parts = String(cartParts.length);
+    cartParts.forEach((part, index) => { metadata[`items_${index}`] = part; });
 
-    // Store all order data in metadata so the webhook can create the order after payment
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+    const sessionParams = {
       line_items: lineItems,
       mode: 'payment',
-      ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
       success_url: `${origin}/orders?payment=success&order=${order_number}`,
       cancel_url: `${origin}/checkout?payment=cancelled`,
-      customer_email: customer_email,
-      metadata: {
-        base44_app_id: Deno.env.get('BASE44_APP_ID'),
-        order_number,
-        customer_email: customer_email,
-        customer_name,
-        customer_phone,
-        delivery_address,
-        notes: notes || '',
-        store_id,
-        store_name,
-        store_email: storeRecord.email || '',
-        subtotal: String(verifiedSubtotalR),
-        delivery_fee: String(verifiedDeliveryFee),
-        mileage_surcharge: String(verifiedMileageSurcharge),
-        distance_miles: String(verifiedDistanceMiles),
-        delivery_latitude: compliance.coords ? String(compliance.coords.lat) : '',
-        delivery_longitude: compliance.coords ? String(compliance.coords.lon) : '',
-        service_fee: String(verifiedServiceFee),
-        tax: String(verifiedTax),
-        alcohol_excise_tax: String(verifiedAlcoholExciseTaxR),
-        tip: String(verifiedTip),
-        grand_total: String(verifiedTotal),
-        is_in_legal_zone: String(compliance.approved),
-        date_of_birth: date_of_birth || '',
-        referral_credit_applied: String(referralCreditCents),
-        // Store serialized items (up to Stripe's 500 char limit per value)
-        items_json: JSON.stringify(verifiedItems),
-      },
-    });
+      customer_email: user.email,
+      metadata,
+    };
+    // Live retailers are charged directly on their own connected account with an application fee.
+    // Test retailers are charged on the platform account in Stripe test mode instead.
+    if (!isTestStore) {
+      sessionParams.payment_intent_data = {
+        application_fee_amount: applicationFeeCents,
+        metadata: { base44_app_id: appId, order_number, store_id, stripe_connected_account_id: retailerAccount.id },
+      };
+    }
+    const session = await stripe.checkout.sessions.create(
+      sessionParams,
+      isTestStore
+        ? { idempotencyKey: `${appId}:test:${order_number}` }
+        : { stripeAccount: retailerAccount.id, idempotencyKey: `${appId}:${retailerAccount.id}:${order_number}` },
+    );
 
     return Response.json({ url: session.url, session_id: session.id });
   } catch (error) {
-    console.error('Stripe checkout error:', error);
+    console.error('Stripe checkout error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}

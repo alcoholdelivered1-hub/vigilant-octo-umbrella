@@ -5,13 +5,39 @@ Deno.serve(async (req) => {
   const user = await base44.auth.me();
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { driver_id, order_id, order_number, driver_name, rating, comment } = await req.json();
+  const { order_id, order_number, rating, comment } = await req.json();
 
-  if (!driver_id || !order_id || !rating) {
+  if (!order_id || !rating) {
     return Response.json({ error: 'Missing required fields' }, { status: 400 });
   }
   if (rating < 1 || rating > 5) {
     return Response.json({ error: 'Rating must be between 1 and 5' }, { status: 400 });
+  }
+
+  // Verify the caller owns this order (customer or assigned driver) before accepting a rating
+  const orders = await base44.asServiceRole.entities.Order.filter({ id: order_id });
+  const order = orders[0];
+  if (!order) {
+    return Response.json({ error: 'Order not found' }, { status: 404 });
+  }
+
+  // Derive the rated driver from the order record — never trust a client-supplied driver_id,
+  // which would let a caller attribute ratings to an arbitrary driver.
+  const driver_id = order.driver_id;
+  const driver_name = order.driver_name || '';
+  if (!driver_id) {
+    return Response.json({ error: 'No driver is assigned to this order' }, { status: 409 });
+  }
+
+  // Ratings are only accepted for completed deliveries.
+  if (order.status !== 'delivered') {
+    return Response.json({ error: 'You can rate this delivery once it is completed' }, { status: 409 });
+  }
+
+  const isCustomer = order.customer_email === user.email;
+  const isDriver = order.driver_email === user.email;
+  if (!isCustomer && !isDriver && user.role !== 'admin') {
+    return Response.json({ error: 'You are not authorized to rate this order' }, { status: 403 });
   }
 
   // Prevent duplicate ratings for the same order

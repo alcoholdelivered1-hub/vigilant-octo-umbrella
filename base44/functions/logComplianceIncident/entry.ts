@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 function buildRawEmail(to, subject, htmlBody, senderEmail) {
   const message = [
@@ -38,6 +39,8 @@ const INCIDENT_LABELS = {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
     const payload = await req.json();
 
     let incidentType = payload.incident_type;
@@ -195,8 +198,7 @@ Deno.serve(async (req) => {
     try {
       const adminTokens = await base44.asServiceRole.entities.FCMToken.filter({ user_role: 'admin' });
       if (adminTokens.length > 0) {
-        await base44.functions.invoke('sendFCMPush', {
-          event: true,
+        await base44.asServiceRole.functions.invoke('sendFCMPush', {
           tokens: adminTokens.map(t => t.token),
           title: `⚠️ ${label}`,
           body: `Order ${order.order_number || order.id} — ${reason.slice(0, 80)}`,

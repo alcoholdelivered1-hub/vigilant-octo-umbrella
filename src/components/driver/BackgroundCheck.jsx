@@ -98,13 +98,17 @@ export default function BackgroundCheck({ onComplete }) {
     }
     setSaving(true);
     try {
+      const user = await base44.auth.me();
+      const submittedAt = new Date().toISOString();
       await base44.auth.updateMe({
         background_check_submitted: true,
-        background_check_date: new Date().toISOString(),
+        background_check_date: submittedAt,
         livescan_completed: form.livescan_completed,
         livescan_location: form.livescan_location,
         livescan_date: form.livescan_date,
       });
+      const drivers = await base44.entities.Driver.filter({ email: user.email }, '-created_date', 100);
+      await Promise.all(drivers.map(driver => base44.entities.Driver.update(driver.id, { background_check_submitted_at: submittedAt })));
       setStep('submitted');
       toast.success('Background check submission recorded!');
       if (onComplete) onComplete();

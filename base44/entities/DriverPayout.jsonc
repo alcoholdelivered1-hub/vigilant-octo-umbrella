@@ -28,7 +28,7 @@
     },
     "delivery_fees": {
       "type": "number",
-      "description": "Total delivery fees ($4.75 per delivery)"
+      "description": "Total delivery fees ($3 per delivery)"
     },
     "tips": {
       "type": "number",

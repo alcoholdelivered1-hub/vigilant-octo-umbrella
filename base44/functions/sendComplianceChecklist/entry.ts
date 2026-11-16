@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { assertAdmin } from '../../shared/authGuard.ts';
 
 const CHECKLIST = [
   { id: 'A', title: 'Third-Party Delivery Permit', items: ['Apply with Arkansas Alcoholic Beverage Control (ABC)', 'Pay required annual fee (~$500)', 'Must be approved before operating'] },
@@ -32,6 +33,8 @@ const CHECKLIST = [
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const { authorized, response } = await assertAdmin(base44);
+    if (!authorized) return response;
 
     const sectionsHtml = CHECKLIST.map(section => `
       <tr>
@@ -112,13 +115,7 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-    // Notifications to Drew.Cousins@dfa.arkansas.gov have been disabled
-    const recipientEmail = null;
-
-    if (!recipientEmail) {
-      console.log('Compliance checklist generated but not sent — ABC email notifications disabled');
-      return Response.json({ success: true, sent: false, reason: 'ABC email notifications disabled' });
-    }
+    const recipientEmail = 'Drew.Cousins@dfa.arkansas.gov';
 
     await base44.asServiceRole.integrations.Core.SendEmail({
       to: recipientEmail,
